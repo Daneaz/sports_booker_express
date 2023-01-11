@@ -15,9 +15,11 @@ const FORMAT_WITH_TIME = "YYYY-MM-DD hh:mm a";
 let counter = 0;
 /* GET home page. */
 router.post('/book', function (req, res, next) {
+    console.log(req.body)
     let requestTime = moment(`${moment.unix(req.body.date / 1000).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME)
 
     let scheduleDate = moment(`${moment.unix(req.body.date / 1000).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(15, "seconds").subtract(7, "days");
+    console.log(scheduleDate)
     // scheduleDate = moment().add(5, "seconds");
 
     console.log(`Current job count: ${counter}`)
