@@ -21,7 +21,7 @@ router.post('/book', function (req, res, next) {
 
     let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(15, "seconds").subtract(7, "days");
 
-    scheduleDate = moment().add(5, "seconds");
+    // scheduleDate = moment().add(5, "seconds");
 
     logger.info(`Current job count: ${counter}`)
     if (counter >= 5) {
