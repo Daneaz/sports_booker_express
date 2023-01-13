@@ -19,6 +19,7 @@
     "node-schedule": "^2.1.0",
     "puppeteer": "^19.4.1",
     "winston": "^3.8.2",
-    "winston-daily-rotate-file": "^4.7.1"
+    "winston-daily-rotate-file": "^4.7.1",
+    "chromium": "^3.0.3"
   }
 }
