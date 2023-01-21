@@ -21,7 +21,13 @@ router.post('/book', function (req, res, next) {
 
     let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(15, "seconds").subtract(7, "days");
 
-    // scheduleDate = moment().add(5, "seconds");
+    let msg;
+    if (scheduleDate.valueOf() <= moment().valueOf())  {
+        scheduleDate = moment().add(5, "seconds");
+        msg = "Slot release time has pass, trying to book now. You will receive a email once the slot is found."
+    } else {
+        msg = `Task has scheduled for ${req.body.type.text} on ${scheduleDate.format(FORMAT_WITH_TIME)}... Current scheduled task number: ${counter+1}`
+    }
 
     logger.info(`Current job count: ${counter}`)
     if (counter >= 5) {
@@ -36,7 +42,7 @@ router.post('/book', function (req, res, next) {
             counter--;
             logger.info(`Current job count: ${counter}`)
         }.bind(null, req));
-        return res.status(200).json(`Job has scheduled for ${req.body.type.text} on ${requestTime.format(FORMAT_WITH_TIME)}... Current job count: ${counter}`);
+        return res.status(200).json(msg);
     }
 });
 
