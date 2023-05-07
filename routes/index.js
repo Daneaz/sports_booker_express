@@ -64,7 +64,7 @@ async function loginAndNavigate(req) {
     const username = req.body.email;
     const password = req.body.password;
 
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({headless: "new"});
     try {
 
         logger.info("Loading...")
@@ -98,12 +98,16 @@ async function loginAndNavigate(req) {
 async function checkingSlot(req) {
     let {targetBox, browser, page} = await loginAndNavigate(req);
     try {
-        let targetSlotBookBtn = await targetBox.$('.cp-btn-classes-action');
-        await browser.close();
-        if (targetSlotBookBtn) {
-            return true;
+        if (targetBox) {
+            let targetSlotBookBtn = await targetBox.$('.cp-btn-classes-action');
+            await browser.close();
+            if (targetSlotBookBtn) {
+                return true;
+            } else {
+                logger.warn("No Slot found...")
+                return false;
+            }
         } else {
-            logger.warn("No Slot found...")
             return false;
         }
     } catch (err) {
@@ -171,7 +175,7 @@ async function recursiveBooking(req, targetBox, browser, page) {
             logger.info("Done...")
             await browser.close();
         }
-    } catch (err){
+    } catch (err) {
         logger.error(err);
         await recursiveBooking(req, targetBox, browser, page);
     }
