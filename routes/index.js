@@ -130,7 +130,7 @@ async function runBooker(req) {
             return;
         }
 
-        await recursiveBooking(req, targetBox, browser, page)
+        await recursiveBooking(req, targetBox, browser, page, 0)
 
     } catch (err) {
         logger.error("Unknown error: " + err);
@@ -139,7 +139,7 @@ async function runBooker(req) {
     }
 }
 
-async function recursiveBooking(req, targetBox, browser, page) {
+async function recursiveBooking(req, targetBox, browser, page, counter) {
     let requestTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME)
     const duration = req.body.duration;
     try {
@@ -177,7 +177,11 @@ async function recursiveBooking(req, targetBox, browser, page) {
         }
     } catch (err) {
         logger.error(err);
-        await recursiveBooking(req, targetBox, browser, page);
+        if (counter < 10) {
+            await recursiveBooking(req, targetBox, browser, page, counter + 1);
+        } else {
+            await browser.close();
+        }
     }
 }
 
