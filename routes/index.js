@@ -5,13 +5,18 @@ const puppeteer = require('puppeteer');
 const moment = require('moment');
 const schedule = require('node-schedule');
 const logger = require('../logger');
+const axios = require('axios');
+
+axios.defaults.withCredentials = true
 
 // static content
-const URL = "https://sportshub.perfectgym.com/clientportal2/#/Login";
-const FORMAT = "DD-MM-YYYY";
+const LOGIN_API = "https://sportshub.perfectgym.com/clientportal2/Auth/Login"
+const QUERY_DETAIL_API = "https://sportshub.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/SetFacilityBookingDetailsWizardStep/Next";
+const BOOKING_API = "https://sportshub.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/ChooseBookingRuleStep/Next"
+
 const REQUEST_FORMAT = "YYYY-MM-DD";
 const FORMAT_WITH_TIME = "YYYY-MM-DD hh:mm a";
-
+const FORMAT_DATETIME = "YYYY-MM-DDTHH:mm:ss";
 // scheduler counter
 let counter = 0;
 
@@ -20,11 +25,10 @@ router.post('/book', async function (req, res, next) {
 
     let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
     let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(15, "seconds").subtract(7, "days");
-    let isSchedule = false;
+    let isSchedule;
     let msg;
     if (moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).valueOf() <= moment().add(7, "days").valueOf()) {
-        scheduleDate = moment().add(15, "seconds");
-        msg = "Slot release time has pass, trying to book now. You will receive a email once the slot is found."
+        isSchedule = false
     } else {
         isSchedule = true;
         msg = `Task has scheduled for ${req.body.type.text} on ${scheduleDate.format(FORMAT_WITH_TIME)}... Current scheduled task number: ${counter + 1}`
@@ -35,246 +39,208 @@ router.post('/book', async function (req, res, next) {
         return res.status(400).json(`Max scheduler = 5, Current scheduler= ${counter}`);
     } else {
 
-        if (isSchedule && !await checkingSlot(req)) {
-            return res.status(400).json(`No slots available on ${requestDate} ${req.body.time}`)
-        } else {
+        if (isSchedule && !await checkingSlot(req, res)) {
+            return res.status(400).json(`Checking slot fail. There's no slots available on ${requestDate} ${req.body.time}`)
+        }
 
+        if (isSchedule) {
             counter++;
             logger.info(`Job has scheduled for ${req.body.type.text} on ${scheduleDate.toLocaleString()}... Current job count: ${counter}`)
 
-
             schedule.scheduleJob(scheduleDate.toDate(), function () {
                 logger.info("Starting to run booker...")
-                runBooker(req);
+                bookingSlot(req, res);
                 counter--;
                 logger.info(`Current job count: ${counter}`)
             }.bind(null, req));
             return res.status(200).json(msg);
+        } else {
+            logger.info("Slot release time has pass, trying to book now.")
+            await bookingSlot(req, res);
+
+            return res.status(200).json("Booking Success, Please process to payment.");
         }
+
     }
 });
 
 
-async function loginAndNavigate(req) {
-
-    let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
-
-    // inputs
-    const bookingURL = `https://sportshub.perfectgym.com/clientportal2/#/FacilityBooking?clubId=1&zoneTypeId=${req.body.type.value}&date=${requestDate}`
-    const username = req.body.email;
-    const password = req.body.password;
-
-    const browser = await puppeteer.launch({headless: "new"});
+async function login(req, res) {
     try {
+        let data = {
+            "Login": req.body.email,
+            "Password": req.body.password,
+            "RememberMe": false,
+        }
 
-        logger.info("Loading...")
-        const page = await browser.newPage();
-        await page.goto(URL);
-        await page.waitForNetworkIdle()
-
-        // login
-        logger.info("Login...")
-        await page.type(".baf-field-input.ng-valid", username);
-        await page.type(".baf-field-input.baf-password-input", password);
-        await page.click(".cp-btn-next.cp-login-btn-login");
+        let response = await axios.post(LOGIN_API, data)
 
 
-        // navigation
-        logger.info("Navigating to booking page...")
-        await page.goto(bookingURL);
-        await page.waitForNetworkIdle();
-
-        logger.info(`Searching for ${req.body.type.text} slot...`)
-        const timingBoxes = await page.$$('table tr td');
-        logger.info(`Total slot count ${timingBoxes.length}`)
-        let targetBox = timingBoxes[await findTargetSlot(page, requestDate, req.body.time)];
-        return {targetBox, browser, page};
+        return {userId: response.data.User.Member.Id, loginCookies: response.headers["set-cookie"]}
     } catch (err) {
-        logger.error("Unknown error: " + err);
-        await browser.close();
+        logger.error(`Unknown Exception, Login, Error: ${err}`)
+        return res.status(400).json(`Unknown Exception`);
     }
 }
 
-async function checkingSlot(req) {
-    let {targetBox, browser, page} = await loginAndNavigate(req);
+async function tryingToBookSlot(req, res, cookies, userId, requestDate, requestDateTime) {
+    let {
+        zoneId,
+        sessionId,
+        sessionCookies
+    } = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
+    stackUpCookies(cookies, sessionCookies)
+    if (!zoneId) {
+        logger.info("No available slots")
+        return res.status(400).json(`No available slots`);
+    }
+
+    let {
+        ruleId,
+        ruleCookies
+    } = await fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, req.body.duration, res);
+    stackUpCookies(cookies, ruleCookies)
+    return await bookSlot(cookies, sessionId, ruleId, res);
+}
+
+
+async function checkingSlot(req, res) {
     try {
-        if (targetBox) {
-            let targetSlotBookBtn = await targetBox.$('.cp-btn-classes-action');
-            await browser.close();
-            if (targetSlotBookBtn) {
-                return true;
-            } else {
-                logger.warn("No Slot found...")
-                return false;
-            }
-        } else {
+        let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
+        let requestDateTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).format(FORMAT_DATETIME)
+
+        let cookies = [];
+
+        let {userId, loginCookies} = await login(req);
+        stackUpCookies(cookies, loginCookies)
+
+        let {zoneId} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
+
+        if (!zoneId) {
+            logger.info("No available slots")
             return false;
         }
+        return true;
+
     } catch (err) {
-        logger.error("Unknown error: " + err);
-        await browser.close();
+        logger.error(`Unknown Exception, Error: ${err}`)
     }
+
 }
 
-async function runBooker(req) {
-    let {targetBox, browser, page} = await loginAndNavigate(req);
-
+async function bookingSlot(req, res) {
     try {
-        if (targetBox) {
-            let targetSlotBookBtn = await targetBox.$('.cp-btn-classes-action');
-            await targetSlotBookBtn.click();
-            await page.waitForNetworkIdle();
-        } else {
-            logger.warn("No Slot found...")
-            await browser.close();
-            return;
+        let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
+        let requestDateTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).format(FORMAT_DATETIME)
+
+        let cookies = [];
+
+        let {userId, loginCookies} = await login(req, res);
+        stackUpCookies(cookies, loginCookies);
+
+        let expiredTime = moment().add(30, 'seconds')
+        let status = 499;
+        while (status === 499 && moment.now() < expiredTime.valueOf()) {
+            status = await tryingToBookSlot(req, res, cookies, userId, requestDate, requestDateTime);
         }
-
-        await recursiveBooking(req, targetBox, browser, page, 0)
-
+        return status;
     } catch (err) {
-        logger.error("Unknown error: " + err);
-
-        await browser.close();
+        logger.error(`Unknown Exception, Error: ${err}`)
+        return res.status(400).json(`Unknown Exception`);
     }
+
 }
 
-async function recursiveBooking(req, targetBox, browser, page, counter) {
-    let requestTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME)
-    const duration = req.body.duration;
+async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        if (duration > 60) {
-            logger.info("Configuring for target slot duration...")
-            let durationBtn = await page.$('[name="selectedDuration"]');
-            await durationBtn.click();
-            await page.waitForNetworkIdle({timeout: 5000});
-            let durationSlot = await page.$('.scroll-wrapper.baf-scroll-panel-inner');
-            let slots = await durationSlot.$$('span');
-            if (slots.length > 1) {
-                await page.keyboard.press('ArrowDown');
-                await page.keyboard.press('Enter');
-                await page.click(".cp-btn-next");
-                await page.waitForNetworkIdle({timeout: 5000});
-
-                logger.info("Trying to book slot...")
-                await bookingSlot(page, requestTime);
-
-                logger.info("Done...")
-                await browser.close();
-            } else {
-                logger.warn(`No ${duration} mins slot found...`)
-                await browser.close();
+        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
+        let response = await axios.get(GET_SESSION_API, {
+            headers: {
+                cookie: cookies
             }
-        } else {
-            await page.click(".cp-btn-next");
-            await page.waitForNetworkIdle({timeout: 5000});
-
-            logger.info("Booking for target slot...")
-            await bookingSlot(page, requestTime);
-
-            logger.info("Done...")
-            await browser.close();
-        }
-    } catch (err) {
-        logger.error(err);
-        if (counter < 10) {
-            await recursiveBooking(req, targetBox, browser, page, counter + 1);
-        } else {
-            await browser.close();
-        }
-    }
-}
-
-async function findTargetSlot(page, dateString, timeString) {
-    let requestDate = moment(dateString);
-
-    let colHeader = await page.evaluate(() => {
-        const tds = Array.from(document.querySelectorAll('.cp-calendar-date'))
-        return tds.map(td => td.innerText)
-    });
-
-    let colNum;
-    for (let i = 0; i < colHeader.length; i++) {
-        let dateAndMonth = colHeader[i].split('/');
-        if (dateAndMonth[0].length < 2) {
-            dateAndMonth[0] = `0${dateAndMonth[0]}`;
-        }
-        if (dateAndMonth[1].length < 2) {
-            dateAndMonth[1] = `0${dateAndMonth[1]}`;
-        }
-        let date = `${dateAndMonth[0]}/${dateAndMonth[1]}/${moment().year()}`
-        if (moment(date, FORMAT).valueOf() === requestDate.valueOf()) {
-            colNum = i;
-            break;
-        }
-    }
-
-    let rowHeader = await page.evaluate(() => {
-        const tds = Array.from(document.querySelectorAll('.cp-calendar-side-col'))
-        return tds.map(td => td.innerText)
-    });
-
-    rowHeader = await rowHeader.filter(value => {
-        if (value !== "")
-            return value;
-    })
-
-    let rowNum;
-    for (let i = 0; i < rowHeader.length; i++) {
-        if (rowHeader[i] === timeString) {
-            rowNum = i;
-        }
-    }
-    logger.info(`Date: ${colHeader}`)
-    logger.info(`Request Date: ${dateString}`)
-    logger.info(`Time: ${rowHeader}`)
-    logger.info(`Request Time: ${timeString}`)
-    logger.info(`Target slot count: ${colNum + 1 + rowNum * (colHeader.length + 2)}`)
-
-    return colNum + 1 + rowNum * (colHeader.length + 2);
-}
-
-async function bookingSlot(page, requestTime) {
-    try {
-        let expiredTime = requestTime.add(60, 'seconds')
-        while (moment.now() < expiredTime.valueOf()) {
-            logger.info("Booking for target slot...")
-            let addToCartBtn = await page.$('[text="Add to cart"]');
-            if (addToCartBtn) {
-                logger.info("Booking with [Add to cart]...")
-                await addToCartBtn.click();
-                await page.waitForNetworkIdle();
-                let bookNowBtn = await page.$('[text="Book now"]');
-                if (bookNowBtn) {
-                    await bookNowBtn.click();
-                    await page.waitForNetworkIdle();
-                } else {
-                    let model = await page.$('.cp-modal-content.cp-facility-modal');
-                    if (model) {
-                        let bookBtn = await model.$('[text="Book"]')
-                        if (bookBtn) {
-                            await bookBtn.click();
-                            await page.waitForNetworkIdle();
-                        }
-                    }
-                }
-            } else {
-                logger.info("Booking with [Book]...")
-                let model = await page.$('.cp-modal-content.cp-facility-modal');
-                if (model) {
-                    let bookBtn = await model.$('[text="Book"]')
-                    await bookBtn.click();
-                    await page.waitForNetworkIdle();
-                }
-            }
-            let closeBtn = await page.$('[text="Close"]');
-            if (closeBtn) {
+        })
+        let slots = response.data.Data.UsersBookingPossibilities[userId].PossibleDurations;
+        let zones = response.data.Data.Zones;
+        let zoneId;
+        for (let i = zones.length - 1; i >= 0; i--) {
+            if (slots[zones[i].Id][requestDateTime][req.body.duration]) {
+                zoneId = zones[i].Id;
                 break;
             }
-            await delay(500);
+        }
+
+
+        return {
+            zoneId: zoneId,
+            sessionId: response.headers.get("cp-book-facility-session-id"),
+            sessionCookies: response.headers["set-cookie"]
         }
     } catch (err) {
-        logger.error(err)
+        logger.error(`Unknown Exception, ObtainSession, Error: ${err}`)
+        return res.status(400).json(`Unknown Exception`);
+    }
+}
+
+async function fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, duration, res) {
+    try {
+        let data = {
+            "UserId": userId,
+            "ZoneId": zoneId,
+            "StartTime": requestDateTime,
+            "RequiredNumberOfSlots": null,
+            "Duration": duration
+        }
+
+        let response = await axios.post(QUERY_DETAIL_API, data, {
+            headers: {
+                "cookie": cookies,
+                "cp-book-facility-session-id": sessionId
+            }
+        })
+
+        return {ruleId: response.data.Data.RuleId, ruleCookies: response.headers["set-cookie"]}
+    } catch (err) {
+        logger.error(`Unknown Exception, FillUpDetail, Error: ${err}`)
+        return res.status(400).json(`Unknown Exception`);
+    }
+}
+
+async function bookSlot(cookies, sessionId, ruleId, res) {
+    try {
+        let data = {
+            "ruleId": ruleId,
+            "OtherCalendarEventBookedAtRequestedTime": false,
+            "HasUserRequiredProducts": false,
+            "ShouldBuyRequiredProductOnDebit": true
+        }
+
+        let response = await axios.post(BOOKING_API, data, {
+            headers: {
+                "cookie": cookies,
+                "cp-book-facility-session-id": sessionId
+            }
+        })
+
+        if (response.status === 200) {
+            logger.info("Booking Success")
+        } else if (response.status === 499) {
+            logger.info("Slot is not ready yet")
+        } else {
+            logger.error("Unknown Status")
+        }
+
+        return response.status;
+    } catch (err) {
+        logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
+        return res.status(400).json(`Unknown Exception`);
+    }
+}
+
+function stackUpCookies(origin, newCookies) {
+    if (newCookies != null) {
+        for (let i = 0; i < newCookies.length; i++) {
+            origin.push(newCookies[i]);
+        }
     }
 }
 
