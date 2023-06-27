@@ -65,7 +65,7 @@ router.post('/book', async function (req, res, next) {
 });
 
 
-async function login(req, res = null) {
+async function login(req, res) {
     try {
         let data = {
             "Login": req.body.email,
@@ -157,7 +157,7 @@ async function bookingSlot(req, res = null) {
 
 }
 
-async function obtainSession(req, res = null, cookies, userId, requestDate, requestDateTime) {
+async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
         const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
         let response = await axios.get(GET_SESSION_API, {
