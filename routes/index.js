@@ -24,7 +24,7 @@ let counter = 0;
 router.post('/book', async function (req, res, next) {
 
     let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
-    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(15, "seconds").subtract(7, "days");
+    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(10, "seconds").subtract(7, "days");
     let isSchedule;
     let msg;
     if (moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).valueOf() <= moment().add(7, "days").valueOf()) {
@@ -49,7 +49,7 @@ router.post('/book', async function (req, res, next) {
 
             schedule.scheduleJob(scheduleDate.toDate(), function () {
                 logger.info("Starting to run booker...")
-                bookingSlot(req, res);
+                bookingSlot(req);
                 counter--;
                 logger.info(`Current job count: ${counter}`)
             }.bind(null, req));
@@ -65,7 +65,7 @@ router.post('/book', async function (req, res, next) {
 });
 
 
-async function login(req, res) {
+async function login(req, res = null) {
     try {
         let data = {
             "Login": req.body.email,
@@ -79,7 +79,9 @@ async function login(req, res) {
         return {userId: response.data.User.Member.Id, loginCookies: response.headers["set-cookie"]}
     } catch (err) {
         logger.error(`Unknown Exception, Login, Error: ${err}`)
-        return res.status(400).json(`Unknown Exception`);
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 }
 
@@ -111,7 +113,7 @@ async function checkingSlot(req, res) {
 
         let cookies = [];
 
-        let {userId, loginCookies} = await login(req);
+        let {userId, loginCookies} = await login(req, res);
         stackUpCookies(cookies, loginCookies)
 
         let {zoneId} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
@@ -124,11 +126,14 @@ async function checkingSlot(req, res) {
 
     } catch (err) {
         logger.error(`Unknown Exception, Error: ${err}`)
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 
 }
 
-async function bookingSlot(req, res) {
+async function bookingSlot(req, res = null) {
     try {
         let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
         let requestDateTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).format(FORMAT_DATETIME)
@@ -140,8 +145,9 @@ async function bookingSlot(req, res) {
 
         let expiredTime = moment().add(30, 'seconds')
         let status = 499;
-        while (status === 499 && moment.now() < expiredTime.valueOf()) {
+        while (status >= 400 && moment.now() < expiredTime.valueOf()) {
             status = await tryingToBookSlot(req, res, cookies, userId, requestDate, requestDateTime);
+            await delay(500);
         }
         return status;
     } catch (err) {
@@ -151,7 +157,7 @@ async function bookingSlot(req, res) {
 
 }
 
-async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
+async function obtainSession(req, res = null, cookies, userId, requestDate, requestDateTime) {
     try {
         const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
         let response = await axios.get(GET_SESSION_API, {
@@ -177,7 +183,9 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
         }
     } catch (err) {
         logger.error(`Unknown Exception, ObtainSession, Error: ${err}`)
-        return res.status(400).json(`Unknown Exception`);
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 }
 
@@ -201,7 +209,9 @@ async function fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime,
         return {ruleId: response.data.Data.RuleId, ruleCookies: response.headers["set-cookie"]}
     } catch (err) {
         logger.error(`Unknown Exception, FillUpDetail, Error: ${err}`)
-        return res.status(400).json(`Unknown Exception`);
+        if (res){
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 }
 
@@ -227,12 +237,17 @@ async function bookSlot(cookies, sessionId, ruleId, res) {
 
         return response.status;
     } catch (err) {
-        if(err.response.status === 499) {
+        if (err.response.status === 499) {
             logger.info("Slot is not ready yet")
             return 499;
+        } else if (err.response.status >= 400){
+            logger.info(err)
+            return err.response.status;
         } else {
             logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
-            return res.status(400).json(`Unknown Exception`);
+            if (res){
+                return res.status(400).json(`Unknown Exception`);
+            }
         }
     }
 }
