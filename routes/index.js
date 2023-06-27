@@ -223,16 +223,17 @@ async function bookSlot(cookies, sessionId, ruleId, res) {
 
         if (response.status === 200) {
             logger.info("Booking Success")
-        } else if (response.status === 499) {
-            logger.info("Slot is not ready yet")
-        } else {
-            logger.error("Unknown Status")
         }
 
         return response.status;
     } catch (err) {
-        logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
-        return res.status(400).json(`Unknown Exception`);
+        if(err.response.status === 499) {
+            logger.info("Slot is not ready yet")
+            return 499;
+        } else {
+            logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 }
 
