@@ -85,26 +85,6 @@ async function login(req, res) {
     }
 }
 
-async function tryingToBookSlot(req, res, cookies, userId, requestDate, requestDateTime) {
-    let {
-        zoneId,
-        sessionId,
-        sessionCookies
-    } = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
-    stackUpCookies(cookies, sessionCookies)
-    if (!zoneId) {
-        logger.info("No available slots")
-        return res.status(400).json(`No available slots`);
-    }
-
-    let {
-        ruleId,
-        ruleCookies
-    } = await fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, req.body.duration, res);
-    stackUpCookies(cookies, ruleCookies)
-    return await bookSlot(cookies, sessionId, ruleId, res);
-}
-
 
 async function checkingSlot(req, res) {
     try {
@@ -143,10 +123,20 @@ async function bookingSlot(req, res = null) {
         let {userId, loginCookies} = await login(req, res);
         stackUpCookies(cookies, loginCookies);
 
+        let {zoneId, sessionId, sessionCookies} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
+        stackUpCookies(cookies, sessionCookies)
+        if (!zoneId) {
+            logger.info("No available slots")
+            return res.status(400).json(`No available slots`);
+        }
+
+        let {ruleId, ruleCookies} = await fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, req.body.duration, res);
+        stackUpCookies(cookies, ruleCookies)
+
         let expiredTime = moment().add(30, 'seconds')
         let status = 499;
         while (status >= 400 && moment.now() < expiredTime.valueOf()) {
-            status = await tryingToBookSlot(req, res, cookies, userId, requestDate, requestDateTime);
+            status = await bookSlot(cookies, sessionId, ruleId, res);
             await delay(500);
         }
         return status;
