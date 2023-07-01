@@ -24,7 +24,7 @@ let counter = 0;
 router.post('/book', async function (req, res, next) {
 
     let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
-    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(10, "seconds").subtract(7, "days");
+    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "seconds").subtract(7, "days");
     let isSchedule;
     let msg;
     if (moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).valueOf() <= moment().add(7, "days").valueOf()) {
@@ -105,7 +105,7 @@ async function checkingSlot(req, res) {
         return true;
 
     } catch (err) {
-        logger.error(`Unknown Exception, Error: ${err}`)
+        logger.error(`Unknown Exception, checkingSlot, Error: ${err}`)
         if (res) {
             return res.status(400).json(`Unknown Exception`);
         }
@@ -122,26 +122,39 @@ async function bookingSlot(req, res = null) {
 
         let {userId, loginCookies} = await login(req, res);
         stackUpCookies(cookies, loginCookies);
+        logger.info(`LoggingIn with userId: ${userId}`)
 
         let {zoneId, sessionId, sessionCookies} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
         stackUpCookies(cookies, sessionCookies)
+
         if (!zoneId) {
             logger.info("No available slots")
-            return res.status(400).json(`No available slots`);
+            if (res){
+                return res.status(400).json(`No available slots`);
+            } else {
+                return ;
+            }
         }
+        logger.info(`Obtained session with zoneId: ${zoneId}, sessionId: ${sessionId}`)
+
 
         let {ruleId, ruleCookies} = await fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, req.body.duration, res);
         stackUpCookies(cookies, ruleCookies)
 
+        logger.info(`Obtained ruleId: ${ruleId}`)
+
         let expiredTime = moment().add(30, 'seconds')
         let status = 499;
+        let counter = 1;
         while (status >= 400 && moment.now() < expiredTime.valueOf()) {
+            logger.info(`Trying ${counter}`)
             status = await bookSlot(cookies, sessionId, ruleId, res);
             await delay(500);
+            counter++;
         }
         return status;
     } catch (err) {
-        logger.error(`Unknown Exception, Error: ${err}`)
+        logger.error(`Unknown Exception, bookingSlot, Error: ${err}`)
         return res.status(400).json(`Unknown Exception`);
     }
 
@@ -158,6 +171,7 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
         let slots = response.data.Data.UsersBookingPossibilities[userId].PossibleDurations;
         let zones = response.data.Data.Zones;
         let zoneId;
+        //TODO can be optimise by obtain a list of zoneIds, can pass down, and parallel call for each zoneId
         for (let i = zones.length - 1; i >= 0; i--) {
             if (slots[zones[i].Id][requestDateTime][req.body.duration]) {
                 zoneId = zones[i].Id;
@@ -199,7 +213,7 @@ async function fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime,
         return {ruleId: response.data.Data.RuleId, ruleCookies: response.headers["set-cookie"]}
     } catch (err) {
         logger.error(`Unknown Exception, FillUpDetail, Error: ${err}`)
-        if (res){
+        if (res) {
             return res.status(400).json(`Unknown Exception`);
         }
     }
@@ -227,16 +241,20 @@ async function bookSlot(cookies, sessionId, ruleId, res) {
 
         return response.status;
     } catch (err) {
-        if (err.response.status === 499) {
-            logger.info("Slot is not ready yet")
-            return 499;
-        } else if (err.response.status >= 400){
-            logger.info(err)
-            return err.response.status;
+        if (err.response && err.response.status) {
+            if (err.response.status === 499) {
+                logger.info("Slot is not ready yet")
+                return 499;
+            } else if (err.response.status >= 400) {
+                logger.info(err)
+                return err.response.status;
+            }
         } else {
             logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
-            if (res){
+            if (res) {
                 return res.status(400).json(`Unknown Exception`);
+            } else {
+                return 500;
             }
         }
     }
