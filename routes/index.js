@@ -323,6 +323,10 @@ async function bookSlot(res, detailList) {
                     return responses[i].status;
                 } else if (responses[i].status === 499) {
                     logger.info(`Slot not ready, Status: ${responses[i].status}, Message: ${responses[i].data}`)
+                } else if (responses[i].status === 502) {
+                    logger.info(`Server Error, Status: ${responses[i].status}`)
+                } else if (responses[i].status === 503) {
+                    logger.info(`Server Error, Status: ${responses[i].status}`)
                 } else {
                     logger.info(`Unknown Error, Status: ${responses[i].status}, Message: ${responses[i].data}`)
                 }
