@@ -143,10 +143,10 @@ async function bookingSlot(req, res = null) {
 
         logger.info(`Obtained ruleId: ${ruleId}`)
 
-        let expiredTime = moment().add(60, 'seconds')
+        let expiredTime = moment().add(60*10, 'seconds')
         let status = 499;
         let counter = 1;
-        while (status !== 200 && moment.now() < expiredTime.valueOf()) {
+        while (status !== 200 && moment.now() < expiredTime.valueOf() && counter<50) {
             logger.info(`Trying ${counter}`)
             status = await bookSlot(cookies, sessionId, ruleId, res);
             await delay(500);
