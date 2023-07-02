@@ -65,7 +65,7 @@ router.post('/book', async function (req, res, next) {
 });
 
 
-async function login(req, res) {
+async function login(req, res, cookies) {
     try {
         let data = {
             "Login": req.body.email,
@@ -75,8 +75,18 @@ async function login(req, res) {
 
         let response = await axios.post(LOGIN_API, data)
 
+        stackUpCookies(cookies, response.headers["set-cookie"])
 
-        return {userId: response.data.User.Member.Id, loginCookies: response.headers["set-cookie"]}
+        if (!response.data.User.Member.Id) {
+            logger.info("Login Fail")
+            if (res) {
+                return res.status(400).json(`Login Fail`);
+            } else {
+                return;
+            }
+        }
+        logger.info(`LoggingIn with userId: ${response.data.User.Member.Id}`)
+        return response.data.User.Member.Id;
     } catch (err) {
         logger.error(`Unknown Exception, Login, Error: ${err}`)
         if (res) {
@@ -93,17 +103,11 @@ async function checkingSlot(req, res) {
 
         let cookies = [];
 
-        let {userId, loginCookies} = await login(req, res);
-        stackUpCookies(cookies, loginCookies)
+        let userId = await login(req, res, cookies);
 
-        let {zoneId} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
+        await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
-        if (!zoneId) {
-            logger.info("No available slots")
-            return false;
-        }
         return true;
-
     } catch (err) {
         logger.error(`Unknown Exception, checkingSlot, Error: ${err}`)
         if (res) {
@@ -120,44 +124,18 @@ async function bookingSlot(req, res = null) {
 
         let cookies = [];
 
-        let {userId, loginCookies} = await login(req, res);
-        stackUpCookies(cookies, loginCookies);
-        logger.info(`LoggingIn with userId: ${userId}`)
+        let userId = await login(req, res, cookies);
 
-        if(!userId){
-            logger.info("Login Fail")
-            if (res){
-                return res.status(400).json(`Login Fail`);
-            } else {
-                return ;
-            }
-        }
+        let zoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
-        let {zoneId, sessionId, sessionCookies} = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
-        stackUpCookies(cookies, sessionCookies)
-
-        if (!zoneId) {
-            logger.info("No available slots")
-            if (res){
-                return res.status(400).json(`No available slots`);
-            } else {
-                return ;
-            }
-        }
-        logger.info(`Obtained session with zoneId: ${zoneId}, sessionId: ${sessionId}`)
-
-
-        let {ruleId, ruleCookies} = await fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, req.body.duration, res);
-        stackUpCookies(cookies, ruleCookies)
-
-        logger.info(`Obtained ruleId: ${ruleId}`)
+        let detailList = await fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, requestDateTime);
 
         let expiredTime = moment().add(30, 'minutes')
         let status = 499;
         let counter = 1;
         while (status !== 200 && moment.now() < expiredTime.valueOf() && counter < 50) {
             logger.info(`Trying ${counter}`)
-            status = await bookSlot(cookies, sessionId, ruleId, res);
+            status = await bookSlot(res, detailList);
             await delay(500);
             counter++;
         }
@@ -179,20 +157,28 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
         })
         let slots = response.data.Data.UsersBookingPossibilities[userId].PossibleDurations;
         let zones = response.data.Data.Zones;
-        let zoneId;
-        //TODO can be optimise by obtain a list of zoneIds, can pass down, and parallel call for each zoneId
-        for (let i = zones.length - 1; i >= 0; i--) {
+        let zoneIds = [];
+        for (let i = 0; i < zones.length; i++) {
             if (slots[zones[i].Id][requestDateTime][req.body.duration]) {
-                zoneId = zones[i].Id;
-                break;
+                zoneIds.push(zones[i].Id);
             }
         }
 
+        if (zoneIds.isEmpty) {
+            logger.info("No available slots")
+            if (res) {
+                return res.status(400).json(`No available slots`);
+            } else {
+                return;
+            }
+        }
+
+        logger.info(`sessionId: ${response.headers.get("cp-book-facility-session-id")}`)
 
         return {
-            zoneId: zoneId,
-            sessionId: response.headers.get("cp-book-facility-session-id"),
-            sessionCookies: response.headers["set-cookie"]
+            zoneIds: zoneIds,
+            sessionCookies: response.headers["set-cookie"],
+            sessionId: response.headers.get("cp-book-facility-session-id")
         }
     } catch (err) {
         logger.error(`Unknown Exception, ObtainSession, Error: ${err}`)
@@ -202,24 +188,80 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
     }
 }
 
-async function fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime, duration, res) {
+async function getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        let data = {
-            "UserId": userId,
-            "ZoneId": zoneId,
-            "StartTime": requestDateTime,
-            "RequiredNumberOfSlots": null,
-            "Duration": duration
-        }
-
-        let response = await axios.post(QUERY_DETAIL_API, data, {
+        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
+        let response = await axios.get(GET_SESSION_API, {
             headers: {
-                "cookie": cookies,
-                "cp-book-facility-session-id": sessionId
+                cookie: cookies
             }
         })
+        let slots = response.data.Data.UsersBookingPossibilities[userId].PossibleDurations;
+        let zones = response.data.Data.Zones;
+        let zoneIds = [];
+        for (let i = 0; i < zones.length; i++) {
+            if (slots[zones[i].Id][requestDateTime][req.body.duration]) {
+                zoneIds.push(zones[i].Id);
+            }
+        }
 
-        return {ruleId: response.data.Data.RuleId, ruleCookies: response.headers["set-cookie"]}
+        if (zoneIds.isEmpty) {
+            logger.info("No available slots")
+            if (res) {
+                return res.status(400).json(`No available slots`);
+            } else {
+                return;
+            }
+        }
+
+        logger.info(`Available slots: ${zoneIds}`)
+        return zoneIds;
+    } catch (err) {
+        logger.error(`Unknown Exception, ObtainSession, Error: ${err}`)
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
+        }
+    }
+}
+
+async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, requestDateTime) {
+    try {
+        let duration = req.body.duration;
+        let detailList = [];
+        for (let i = 0; i < zoneIds.length; i++) {
+            let {
+                sessionId,
+                sessionCookies
+            } = await obtainSession(req, res, cookies, userId, requestDate, requestDateTime);
+            let tempCookies = [...cookies];
+            stackUpCookies(tempCookies, sessionCookies)
+
+            let data = {
+                "UserId": userId,
+                "ZoneId": zoneIds[i],
+                "StartTime": requestDateTime,
+                "RequiredNumberOfSlots": null,
+                "Duration": duration
+            }
+            let response = await axios.post(QUERY_DETAIL_API, data, {
+                headers: {
+                    "cookie": tempCookies,
+                    "cp-book-facility-session-id": sessionId
+                }
+            })
+
+            let detailCookies = response.headers["set-cookie"]
+            stackUpCookies(tempCookies, detailCookies)
+            let detail = {
+                ruleId: response.data.Data.RuleId,
+                sessionId: sessionId,
+                cookies: tempCookies
+            }
+            logger.info(`Obtained ruleId: ${response.data.Data.RuleId}, sessionId: ${sessionId}`)
+            detailList.push(detail);
+        }
+
+        return detailList;
     } catch (err) {
         logger.error(`Unknown Exception, FillUpDetail, Error: ${err}`)
         if (res) {
@@ -228,43 +270,51 @@ async function fillUpDetail(cookies, userId, zoneId, sessionId, requestDateTime,
     }
 }
 
-async function bookSlot(cookies, sessionId, ruleId, res) {
+async function bookSlot(res, detailList) {
     try {
-        let data = {
-            "ruleId": ruleId,
-            "OtherCalendarEventBookedAtRequestedTime": false,
-            "HasUserRequiredProducts": false,
-            "ShouldBuyRequiredProductOnDebit": true
-        }
+        let apiCalls = [];
+        for (let i = 0; i < detailList.length; i++) {
 
-        let response = await axios.post(BOOKING_API, data, {
-            headers: {
-                "cookie": cookies,
-                "cp-book-facility-session-id": sessionId
+            let data = {
+                "ruleId": detailList[i].ruleId,
+                "OtherCalendarEventBookedAtRequestedTime": false,
+                "HasUserRequiredProducts": false,
+                "ShouldBuyRequiredProductOnDebit": true
             }
-        })
 
-        if (response.status === 200) {
-            logger.info("Booking Success")
+            let apiCall = axios.post(BOOKING_API, data, {
+                headers: {
+                    "cookie": detailList[i].cookies,
+                    "cp-book-facility-session-id": detailList[i].sessionId
+                },
+                validateStatus: function (status) {
+                    return status < 600;
+                }
+            })
+            apiCalls.push(apiCall);
         }
 
-        return response.status;
+        const responses = await Promise.all(apiCalls);
+
+        for (let i = 0; i < responses.length; i++) {
+            if(responses[i] && responses[i].status){
+                if (responses[i].status === 200) {
+                    logger.info(`Booking Success, Status: ${responses[i].status}, Message: ${responses[i].data}`)
+                    return responses[i].status;
+                } else if (responses[i].status === 499) {
+                    logger.info(`Slot not ready, Status: ${responses[i].status}, Message: ${responses[i].data}`)
+                } else {
+                    logger.info(`Unknown Error, Status: ${responses[i].status}, Message: ${responses[i].data}`)
+                }
+            }
+        }
+        return 499;
     } catch (err) {
-        if (err.response && err.response.status) {
-            if (err.response.status === 499) {
-                logger.info("Slot is not ready yet")
-                return 499;
-            } else if (err.response.status >= 400) {
-                logger.info(err)
-                return err.response.status;
-            }
+        logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
         } else {
-            logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
-            if (res) {
-                return res.status(400).json(`Unknown Exception`);
-            } else {
-                return 500;
-            }
+            return 500;
         }
     }
 }
