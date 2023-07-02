@@ -77,14 +77,6 @@ async function login(req, res, cookies) {
 
         stackUpCookies(cookies, response.headers["set-cookie"])
 
-        if (!response.data.User.Member.Id) {
-            logger.info("Login Fail")
-            if (res) {
-                return res.status(400).json(`Login Fail`);
-            } else {
-                return;
-            }
-        }
         logger.info(`LoggingIn with userId: ${response.data.User.Member.Id}`)
         return response.data.User.Member.Id;
     } catch (err) {
@@ -126,9 +118,39 @@ async function bookingSlot(req, res = null) {
 
         let userId = await login(req, res, cookies);
 
+        if (!userId) {
+            logger.info("Login Fail")
+            if (res) {
+                return res.status(400).json(`Login Fail`);
+            } else {
+                return;
+            }
+        }
+
         let zoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
+        if (zoneIds.isEmpty) {
+            logger.info("No available slots")
+            if (res) {
+                return res.status(400).json(`No available slots`);
+            } else {
+                return;
+            }
+        }
+
+
         let detailList = await fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, requestDateTime);
+
+
+        if (detailList.isEmpty) {
+            logger.info("Filling Up Detail error, unable to query detail")
+            if (res) {
+                return res.status(400).json(`Filling Up Detail error, unable to query detail`);
+            } else {
+                return;
+            }
+        }
+
 
         let expiredTime = moment().add(30, 'minutes')
         let status = 499;
@@ -202,15 +224,6 @@ async function getAvailableSlot(req, res, cookies, userId, requestDate, requestD
         for (let i = 0; i < zones.length; i++) {
             if (slots[zones[i].Id][requestDateTime][req.body.duration]) {
                 zoneIds.push(zones[i].Id);
-            }
-        }
-
-        if (zoneIds.isEmpty) {
-            logger.info("No available slots")
-            if (res) {
-                return res.status(400).json(`No available slots`);
-            } else {
-                return;
             }
         }
 
