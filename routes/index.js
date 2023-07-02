@@ -39,11 +39,12 @@ router.post('/book', async function (req, res, next) {
         return res.status(400).json(`Max scheduler = 5, Current scheduler= ${counter}`);
     } else {
 
-        if (isSchedule && !await checkingSlot(req, res)) {
-            return res.status(400).json(`Checking slot fail. There's no slots available on ${requestDate} ${req.body.time}`)
-        }
-
         if (isSchedule) {
+            let slots = await checkingSlot(req, res) > 0;
+            if (slots.length < 1) {
+                return res.status(400).json(`Checking slot fail. There's no slots available on ${requestDate} ${req.body.time}`)
+            }
+
             counter++;
             logger.info(`Job has scheduled for ${req.body.type.text} on ${scheduleDate.toLocaleString()}... Current job count: ${counter}`)
 
@@ -53,6 +54,7 @@ router.post('/book', async function (req, res, next) {
                 counter--;
                 logger.info(`Current job count: ${counter}`)
             }.bind(null, req));
+            msg = msg + `, Current available slot: ${slots}. Total: ${slots.length}`
             return res.status(200).json(msg);
         } else {
             logger.info("Slot release time has pass, trying to book now.")
@@ -97,9 +99,7 @@ async function checkingSlot(req, res) {
 
         let userId = await login(req, res, cookies);
 
-        await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
-
-        return true;
+        return await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
     } catch (err) {
         logger.error(`Unknown Exception, checkingSlot, Error: ${err}`)
         if (res) {
