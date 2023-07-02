@@ -40,7 +40,7 @@ router.post('/book', async function (req, res, next) {
     } else {
 
         if (isSchedule) {
-            let slots = await checkingSlot(req, res) > 0;
+            let slots = await checkingSlot(req, res);
             if (slots.length < 1) {
                 return res.status(400).json(`Checking slot fail. There's no slots available on ${requestDate} ${req.body.time}`)
             }
@@ -54,7 +54,7 @@ router.post('/book', async function (req, res, next) {
                 counter--;
                 logger.info(`Current job count: ${counter}`)
             }.bind(null, req));
-            msg = msg + `, Current available slot: ${slots}. Total: ${slots.length}`
+            msg = msg + `, Current available slots: ${slots.length}`
             return res.status(200).json(msg);
         } else {
             logger.info("Slot release time has pass, trying to book now.")
