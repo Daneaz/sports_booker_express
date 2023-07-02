@@ -129,7 +129,7 @@ async function bookingSlot(req, res = null) {
 
         let zoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
-        if (zoneIds.isEmpty) {
+        if (zoneIds.length < 1) {
             logger.info("No available slots")
             if (res) {
                 return res.status(400).json(`No available slots`);
@@ -142,7 +142,7 @@ async function bookingSlot(req, res = null) {
         let detailList = await fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, requestDateTime);
 
 
-        if (detailList.isEmpty) {
+        if (detailList.length < 1) {
             logger.info("Filling Up Detail error, unable to query detail")
             if (res) {
                 return res.status(400).json(`Filling Up Detail error, unable to query detail`);
@@ -310,7 +310,7 @@ async function bookSlot(res, detailList) {
         const responses = await Promise.all(apiCalls);
 
         for (let i = 0; i < responses.length; i++) {
-            if(responses[i] && responses[i].status){
+            if (responses[i] && responses[i].status) {
                 if (responses[i].status === 200) {
                     logger.info(`Booking Success, Status: ${responses[i].status}, Message: ${responses[i].data}`)
                     return responses[i].status;
