@@ -152,10 +152,17 @@ async function bookingSlot(req, res = null) {
         }
 
 
+        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(1, 'seconds')
         let expiredTime = moment().add(30, 'minutes')
         let status = 499;
         let counter = 1;
+
         while (status !== 200 && moment.now() < expiredTime.valueOf() && counter < 50) {
+            if (moment.now() < holdingTime.valueOf()) {
+                logger.info("Holding time Please wait...")
+                await delay(500);
+                continue;
+            }
             logger.info(`Trying ${counter}`)
             status = await bookSlot(res, detailList);
             await delay(500);
