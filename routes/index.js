@@ -151,8 +151,7 @@ async function bookingSlot(req, res = null) {
             }
         }
 
-
-        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(1, 'seconds')
+        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days").subtract(1, 'seconds')
         let expiredTime = moment().add(30, 'minutes')
         let status = 499;
         let counter = 1;
