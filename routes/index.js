@@ -304,6 +304,7 @@ async function bookSlot(res, detailList) {
             }
 
             let apiCall = axios.post(BOOKING_API, data, {
+                timeout: 1000,
                 headers: {
                     "cookie": detailList[i].cookies,
                     "cp-book-facility-session-id": detailList[i].sessionId
