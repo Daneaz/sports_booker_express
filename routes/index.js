@@ -8,6 +8,8 @@ const logger = require('../logger');
 const axios = require('axios');
 
 axios.defaults.withCredentials = true
+axios.defaults.timeout = 2000;
+
 
 // static content
 const LOGIN_API = "https://sportshub.perfectgym.com/clientportal2/Auth/Login"
