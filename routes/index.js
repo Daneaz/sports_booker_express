@@ -1,14 +1,13 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
-const puppeteer = require('puppeteer');
 const moment = require('moment');
 const schedule = require('node-schedule');
 const logger = require('../logger');
 const axios = require('axios');
 
 axios.defaults.withCredentials = true
-axios.defaults.timeout = 2000;
+axios.defaults.timeout = 5000;
 
 
 // static content
