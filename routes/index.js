@@ -5,9 +5,19 @@ const moment = require('moment');
 const schedule = require('node-schedule');
 const logger = require('../logger');
 const axios = require('axios');
+const nodemailer = require('nodemailer');
+
 
 axios.defaults.withCredentials = true
 axios.defaults.timeout = 5000;
+
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.email,
+        pass: process.env.password
+    }
+});
 
 
 // static content
@@ -168,6 +178,10 @@ async function bookingSlot(req, res = null) {
             await delay(500);
             counter++;
         }
+        if (status === 200) {
+            sendEmail(req.body.email, requestDateTime);
+        }
+
         return status;
     } catch (err) {
         logger.error(`Unknown Exception, bookingSlot, Error: ${err}`)
@@ -358,5 +372,23 @@ function delay(time) {
     });
 }
 
+
+function sendEmail(email, requestDateTime) {
+    let mailOptions = {
+        from: process.env.email,
+        to: email,
+        subject: `Booking Success`,
+        text: `Your booking on ${requestDateTime} is SUCCESS`
+    };
+
+    transporter.sendMail(mailOptions, function (error, info) {
+        if (error) {
+            logger.error(error);
+        } else {
+            logger.info(`Email sent: ${info.response}`);
+        }
+    });
+
+}
 
 module.exports = router;
