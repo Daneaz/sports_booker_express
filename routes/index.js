@@ -35,7 +35,7 @@ let counter = 0;
 router.post('/book', async function (req, res, next) {
 
     let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
-    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(20, "seconds").subtract(7, "days");
+    let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(40, "seconds").subtract(7, "days");
     let isSchedule;
     let msg;
     if (moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).valueOf() <= moment().add(7, "days").valueOf()) {
@@ -70,8 +70,6 @@ router.post('/book', async function (req, res, next) {
         } else {
             logger.info("Slot release time has pass, trying to book now.")
             await bookingSlot(req, res);
-
-            return res.status(200).json("Booking Success, Please process to payment.");
         }
 
     }
@@ -163,26 +161,13 @@ async function bookingSlot(req, res = null) {
         }
 
         let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days").subtract(1, 'seconds')
-        let expiredTime = moment().add(30, 'minutes')
-        let status = 499;
-        let counter = 1;
 
-        while (status !== 200 && moment.now() < expiredTime.valueOf() && counter < 50) {
-            if (moment.now() < holdingTime.valueOf()) {
-                logger.info("Holding time Please wait...")
-                await delay(500);
-                continue;
-            }
-            logger.info(`Trying ${counter}`)
-            status = await bookSlot(res, detailList);
+        while (moment.now() < holdingTime.valueOf()) {
+            logger.info("Holding time Please wait...")
             await delay(500);
-            counter++;
         }
-        if (status === 200) {
-            // sendEmail(req.body.email, requestDateTime);
-        }
+        await bookSlot(res, detailList);
 
-        return status;
     } catch (err) {
         logger.error(`Unknown Exception, bookingSlot, Error: ${err}`)
         return res.status(400).json(`Unknown Exception`);
@@ -305,57 +290,76 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 }
 
 async function bookSlot(res, detailList) {
-    try {
-        let apiCalls = [];
-        for (let i = 0; i < detailList.length; i++) {
+    let expiredTime = moment().add(15, 'minutes')
+    const counterMap = new Map();
+    const detailMap = new Map();
 
+    let isCompleted = false;
+
+    for (let i = 0; i < detailList.length; i++) {
+        counterMap.set(detailList[i].sessionId, 1);
+        detailMap.set(detailList[i].sessionId, detailList[i]);
+    }
+
+    while (!isCompleted && moment.now() < expiredTime && detailMap.size > 0) {
+        for (const [key, detail] of detailMap.entries()) {
             let data = {
-                "ruleId": detailList[i].ruleId,
+                "ruleId": detail.ruleId,
                 "OtherCalendarEventBookedAtRequestedTime": false,
                 "HasUserRequiredProducts": false,
                 "ShouldBuyRequiredProductOnDebit": true
             }
+            try {
+                let response = await axios.post(BOOKING_API, data, {
+                    timeout: 15000,
+                    headers: {
+                        "cookie": detail.cookies,
+                        "cp-book-facility-session-id": key
+                    },
+                    validateStatus: function (status) {
+                        return status < 600;
+                    }
+                })
 
-            let apiCall = axios.post(BOOKING_API, data, {
-                timeout: 15000,
-                headers: {
-                    "cookie": detailList[i].cookies,
-                    "cp-book-facility-session-id": detailList[i].sessionId
-                },
-                validateStatus: function (status) {
-                    return status < 600;
+                if (response) {
+                    switch (response.status) {
+                        case 200:
+                            // sendEmail(req.body.email, requestDateTime);
+                            logger.info(`Booking Success, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
+                            isCompleted = true;
+                            break;
+                        case 499:
+                            logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
+                            if (counterMap.get(key) >= 5) {
+                                detailMap.delete(key)
+                                logger.info(`Removing session, SessionId: ${key}`)
+                            }
+                            counterMap.set(key, counterMap.get(key) + 1)
+                            break;
+                        case 500:
+                        case 502:
+                        case 503:
+                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}`)
+                            break;
+                        default:
+                            logger.info(`Unknown Error, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
+                            break;
+                    }
                 }
-            })
-            apiCalls.push(apiCall);
-        }
-
-        const responses = await Promise.all(apiCalls);
-
-        for (let i = 0; i < responses.length; i++) {
-            if (responses[i] && responses[i].status) {
-                if (responses[i].status === 200) {
-                    logger.info(`Booking Success, Status: ${responses[i].status}, Message: ${responses[i].data}`)
-                    return responses[i].status;
-                } else if (responses[i].status === 499) {
-                    logger.info(`Slot not ready, Status: ${responses[i].status}, Message: ${responses[i].data}`)
-                } else if (responses[i].status === 502) {
-                    logger.info(`Server Error, Status: ${responses[i].status}`)
-                } else if (responses[i].status === 503) {
-                    logger.info(`Server Error, Status: ${responses[i].status}`)
-                } else {
-                    logger.info(`Unknown Error, Status: ${responses[i].status}, Message: ${responses[i].data}`)
+                if (isCompleted) {
+                    break;
                 }
+            } catch (err) {
+                logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`)
             }
         }
-        return 499;
-    } catch (err) {
-        logger.error(`Unknown Exception, BookSlot, Error: ${err}`)
-        if (res) {
-            return res.status(400).json(`Unknown Exception`);
-        } else {
-            return 500;
-        }
     }
+    if (res && isCompleted){
+        return res.status(200).json(`Booking Success, Please proceed to payment.`);
+    } else if (res){
+        return res.status(400).json(`Booking Fail, No slots available`);
+    }
+
 }
 
 function stackUpCookies(origin, newCookies) {
