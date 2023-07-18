@@ -9,15 +9,15 @@ const nodemailer = require('nodemailer');
 
 
 axios.defaults.withCredentials = true
-axios.defaults.timeout = 5000;
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.email,
-        pass: process.env.password
-    }
-});
+
+// const transporter = nodemailer.createTransport({
+//     service: 'gmail',
+//     auth: {
+//         user: process.env.email,
+//         pass: process.env.password
+//     }
+// });
 
 
 // static content
@@ -179,7 +179,7 @@ async function bookingSlot(req, res = null) {
             counter++;
         }
         if (status === 200) {
-            sendEmail(req.body.email, requestDateTime);
+            // sendEmail(req.body.email, requestDateTime);
         }
 
         return status;
@@ -317,7 +317,7 @@ async function bookSlot(res, detailList) {
             }
 
             let apiCall = axios.post(BOOKING_API, data, {
-                timeout: 1000,
+                timeout: 15000,
                 headers: {
                     "cookie": detailList[i].cookies,
                     "cp-book-facility-session-id": detailList[i].sessionId
@@ -373,22 +373,22 @@ function delay(time) {
 }
 
 
-function sendEmail(email, requestDateTime) {
-    let mailOptions = {
-        from: process.env.email,
-        to: email,
-        subject: `Booking Success`,
-        text: `Your booking on ${requestDateTime} is SUCCESS`
-    };
-
-    transporter.sendMail(mailOptions, function (error, info) {
-        if (error) {
-            logger.error(error);
-        } else {
-            logger.info(`Email sent: ${info.response}`);
-        }
-    });
-
-}
+// function sendEmail(email, requestDateTime) {
+//     let mailOptions = {
+//         from: process.env.email,
+//         to: email,
+//         subject: `Booking Success`,
+//         text: `Your booking on ${requestDateTime} is SUCCESS`
+//     };
+//
+//     transporter.sendMail(mailOptions, function (error, info) {
+//         if (error) {
+//             logger.error(error);
+//         } else {
+//             logger.info(`Email sent: ${info.response}`);
+//         }
+//     });
+//
+// }
 
 module.exports = router;
