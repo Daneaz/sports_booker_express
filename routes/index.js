@@ -338,12 +338,19 @@ async function bookSlot(res, detailList) {
                             counterMap.set(key, counterMap.get(key) + 1)
                             break;
                         case 500:
+                            logger.info(`Server Error, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
+                            if (counterMap.get(key) >= 5) {
+                                detailMap.delete(key)
+                                logger.info(`Removing session, SessionId: ${key}`)
+                            }
+                            counterMap.set(key, counterMap.get(key) + 1)
+                            break;
                         case 502:
                         case 503:
                             logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}`)
                             break;
                         default:
-                            logger.info(`Unknown Error, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
+                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
                             break;
                     }
                 }
