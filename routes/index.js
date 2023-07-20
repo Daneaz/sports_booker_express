@@ -160,7 +160,7 @@ async function bookingSlot(req, res = null) {
             }
         }
 
-        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days").subtract(1, 'seconds')
+        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days").subtract(2, 'seconds')
 
         while (moment.now() < holdingTime.valueOf()) {
             logger.info("Holding time Please wait...")
@@ -309,6 +309,7 @@ async function bookSlot(res, detailList) {
                 "HasUserRequiredProducts": false,
                 "ShouldBuyRequiredProductOnDebit": true
             }
+            logger.info(`Firing request to OCBC server...., SessionId: ${key}`)
             try {
                 let response = await axios.post(BOOKING_API, data, {
                     timeout: 15000,
