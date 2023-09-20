@@ -88,7 +88,7 @@ async function login(req, res, cookies) {
 
         stackUpCookies(cookies, response.headers["set-cookie"])
 
-        logger.info(`LoggingIn with userId: ${response.data.User.Member.Id}`)
+        logger.info(`LoggingIn with userId: ${response.data.User.Member.Id}, FirstName: ${response.data.User.Member.FirstName}, LastName: ${response.data.User.Member.LastName}`)
         return response.data.User.Member.Id;
     } catch (err) {
         logger.error(`Unknown Exception, Login, Error: ${err}`)
