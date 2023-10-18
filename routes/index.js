@@ -290,7 +290,7 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 }
 
 async function bookSlot(res, detailList) {
-    let expiredTime = moment().add(15, 'minutes')
+    let expiredTime = moment().add(45, 'minutes')
     const counterMap = new Map();
     const detailMap = new Map();
 
