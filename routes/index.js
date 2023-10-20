@@ -331,7 +331,7 @@ async function bookSlot(res, detailList) {
                             break;
                         case 499:
                             logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
-                            if (counterMap.get(key) >= 5) {
+                            if (counterMap.get(key) >= 3) {
                                 detailMap.delete(key)
                                 logger.info(`Removing session, SessionId: ${key}`)
                             }
