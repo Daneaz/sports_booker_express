@@ -160,12 +160,12 @@ async function bookingSlot(req, res = null) {
             }
         }
 
-        let holdingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days").subtract(2, 'seconds')
+        let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
+        let holdingTime = bookingTime.valueOf() - moment.now()
 
-        while (moment.now() < holdingTime.valueOf()) {
-            logger.info("Holding time Please wait...")
-            await delay(500);
-        }
+        logger.info(`Holding time Please wait ${holdingTime/1000} seconds... (${holdingTime} milliseconds)`)
+        await delay(holdingTime);
+
         await bookSlot(res, detailList);
 
     } catch (err) {
