@@ -161,8 +161,8 @@ async function bookingSlot(req, res = null) {
         }
 
         let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
-        let holdingTime = bookingTime.valueOf() - moment.now()
-
+        // cal for holding time, deduct 10 ms to fire the event in advance, likely we can arrive the server end just on time
+        let holdingTime = bookingTime.valueOf() - moment.now() - 10
         logger.info(`Holding time Please wait ${holdingTime/1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
