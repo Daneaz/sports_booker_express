@@ -321,7 +321,7 @@ async function bookSlot(res, detailList) {
                         return status < 600;
                     }
                 })
-
+                counterMap.set(key, counterMap.get(key) + 1)
                 if (response) {
                     switch (response.status) {
                         case 200:
@@ -331,18 +331,14 @@ async function bookSlot(res, detailList) {
                             break;
                         case 499:
                             logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
-                            counterMap.set(key, counterMap.get(key) + 1)
                             break;
                         case 500:
-                            logger.info(`Server Error, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
-                            counterMap.set(key, counterMap.get(key) + 1)
-                            break;
                         case 502:
                         case 503:
-                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}`)
+                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
                             break;
                         default:
-                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
+                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
                             break;
                     }
                 }
