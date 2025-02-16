@@ -353,9 +353,8 @@ async function bookSlot(res, detailList) {
                 logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`)
             }
         }
-
-        logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     }
+    logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
