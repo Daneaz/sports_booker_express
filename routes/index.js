@@ -349,7 +349,7 @@ async function bookSlot(res, detailList) {
                 logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`)
             }
         }
-        await delay(counterMap.get(key) * 100);
+        await delay(1000);
     }
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
