@@ -163,7 +163,7 @@ async function bookingSlot(req, res = null) {
         let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
         // cal for holding time, deduct 10 ms to fire the event in advance, likely we can arrive the server end just on time
         let holdingTime = bookingTime.valueOf() - moment.now() - 10
-        logger.info(`Holding time Please wait ${holdingTime/1000} seconds... (${holdingTime} milliseconds)`)
+        logger.info(`Holding time Please wait ${holdingTime / 1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
         await bookSlot(res, detailList);
@@ -312,7 +312,7 @@ async function bookSlot(res, detailList) {
             logger.info(`Firing request to OCBC server...., SessionId: ${key}`)
             try {
                 let response = await axios.post(BOOKING_API, data, {
-                    timeout: 15000,
+                    timeout: 2000,
                     headers: {
                         "cookie": detail.cookies,
                         "cp-book-facility-session-id": key
@@ -326,23 +326,15 @@ async function bookSlot(res, detailList) {
                     switch (response.status) {
                         case 200:
                             // sendEmail(req.body.email, requestDateTime);
-                            logger.info(`Booking Success, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}`)
+                            logger.info(`Booking Success, Status: ${response.status}, Message: ${JSON.stringify(response.data)}, SessionId: ${key}`)
                             isCompleted = true;
                             break;
                         case 499:
                             logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
-                            if (counterMap.get(key) >= 3) {
-                                detailMap.delete(key)
-                                logger.info(`Removing session, SessionId: ${key}`)
-                            }
                             counterMap.set(key, counterMap.get(key) + 1)
                             break;
                         case 500:
                             logger.info(`Server Error, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
-                            if (counterMap.get(key) >= 5) {
-                                detailMap.delete(key)
-                                logger.info(`Removing session, SessionId: ${key}`)
-                            }
                             counterMap.set(key, counterMap.get(key) + 1)
                             break;
                         case 502:
@@ -361,10 +353,12 @@ async function bookSlot(res, detailList) {
                 logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`)
             }
         }
+
+        logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     }
-    if (res && isCompleted){
+    if (res && isCompleted) {
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
-    } else if (res){
+    } else if (res) {
         return res.status(400).json(`Booking Fail, No slots available`);
     }
 
