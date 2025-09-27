@@ -166,7 +166,8 @@ async function bookingSlot(req, res = null) {
         logger.info(`Holding time Please wait ${holdingTime / 1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
-        await bookSlot(res, detailList);
+        // 传递所有必要的参数给bookSlot函数，以便在遇到499状态时可以刷新session
+        await bookSlot(res, detailList, req, userId, cookies, requestDate, requestDateTime);
 
     } catch (err) {
         logger.error(`Unknown Exception, bookingSlot, Error: ${err}`)
@@ -177,7 +178,8 @@ async function bookingSlot(req, res = null) {
 
 async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
+        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BuyProductBeforeBookingFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`
+        // const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
         let response = await axios.get(GET_SESSION_API, {
             headers: {
                 cookie: cookies
@@ -201,12 +203,12 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
             }
         }
 
-        logger.info(`sessionId: ${response.headers.get("cp-book-facility-session-id")}`)
+        logger.info(`sessionId: ${response.headers.get("cp-buy-product-before-booking-fb-session-id")}`)
 
         return {
             zoneIds: zoneIds,
             sessionCookies: response.headers["set-cookie"],
-            sessionId: response.headers.get("cp-book-facility-session-id")
+            sessionId: response.headers.get("cp-buy-product-before-booking-fb-session-id")
         }
     } catch (err) {
         logger.error(`Unknown Exception, ObtainSession, Error: ${err}`)
@@ -265,7 +267,7 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
             let response = await axios.post(QUERY_DETAIL_API, data, {
                 headers: {
                     "cookie": tempCookies,
-                    "cp-book-facility-session-id": sessionId
+                    "cp-buy-product-before-booking-fb-session-id": sessionId
                 }
             })
 
@@ -289,75 +291,163 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
     }
 }
 
-async function bookSlot(res, detailList) {
-    let expiredTime = moment().add(45, 'minutes')
+async function bookSlot(res, detailList, req = null, userId = null, cookies = null, requestDate = null, requestDateTime = null) {
+    let expiredTime = moment().add(30, 'minutes')
     const counterMap = new Map();
     const detailMap = new Map();
 
     let isCompleted = false;
+    let cartCheckInterval = null;
 
     for (let i = 0; i < detailList.length; i++) {
         counterMap.set(detailList[i].sessionId, 1);
         detailMap.set(detailList[i].sessionId, detailList[i]);
     }
 
-    while (!isCompleted && moment.now() < expiredTime && detailMap.size > 0) {
+    // 启动并发查询购物车的进程
+    const checkShoppingCart = () => {
+        // 使用Promise.race来处理超时
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Cart check timeout')), 2000)
+        );
+
+        const cartCheckPromise = axios.get('https://sportshub.perfectgym.com/clientportal2/Shopping/ShoppingCart/GetShoppingCartSummary', {
+            headers: {
+                "cookie": detailList[0].cookies // 使用第一个详情的cookies
+            },
+            validateStatus: function (status) {
+                return status < 600;
+            }
+        })
+            .then(cartResponse => {
+                if (cartResponse && cartResponse.status === 200 && cartResponse.data) {
+                    logger.info(`Shopping Cart Summary: ${JSON.stringify(cartResponse.data)}`);
+                    // 检查购物车数量是否大于0
+                    if (cartResponse.data.TotalQuantity > 0) {
+                        logger.info(`Items found in cart, TotalQuantity: ${cartResponse.data.TotalQuantity}, marking as completed`);
+                        isCompleted = true;
+                        // 如果设置了定时器，清除它
+                        if (cartCheckInterval) {
+                            clearInterval(cartCheckInterval);
+                            cartCheckInterval = null;
+                        }
+                    }
+                }
+                return cartResponse;
+            })
+            .catch(cartErr => {
+                logger.error(`Failed to check shopping cart: ${cartErr}`);
+            });
+
+        return Promise.race([cartCheckPromise, timeoutPromise]).catch(err => {
+            logger.error(`Cart check race error: ${err}`);
+        });
+    };
+
+    // 启动定时查询购物车，每2秒检查一次
+    cartCheckInterval = setInterval(checkShoppingCart, 2000);
+
+
+    while (!isCompleted && moment.now() < expiredTime) {
+        const bookingPromises = [];
+
+        // 处理需要刷新的session
+        if (detailMap.size == 0) {
+            logger.info(`Refreshing ${detailMap.size} sessions with status 499`);
+
+            // 获取新的可用时段
+            let newZoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
+
+            if (newZoneIds && newZoneIds.length > 0) {
+                // 填充新的详情
+                let newDetailList = await fillUpDetail(req, res, cookies, userId, newZoneIds, requestDate, requestDateTime);
+
+                if (newDetailList && newDetailList.length > 0) {
+                    // 添加新的session到执行流程中
+                    for (let i = 0; i < newDetailList.length; i++) {
+                        counterMap.set(newDetailList[i].sessionId, 1);
+                        detailMap.set(newDetailList[i].sessionId, newDetailList[i]);
+                        logger.info(`Added new session: ${newDetailList[i].sessionId} to execution flow`);
+                    }
+                }
+            }
+
+        }
+
         for (const [key, detail] of detailMap.entries()) {
             let data = {
                 "ruleId": detail.ruleId,
                 "OtherCalendarEventBookedAtRequestedTime": false,
                 "HasUserRequiredProducts": false,
                 "ShouldBuyRequiredProductOnDebit": true
-            }
-            logger.info(`Firing request to OCBC server...., SessionId: ${key}`)
+            };
+            logger.info(`Firing request to OCBC server...., SessionId: ${key}`);
+
             try {
-                let response = await axios.post(BOOKING_API, data, {
-                    timeout: 2000,
+                const response = await axios.post(BOOKING_API, data, {
+                    timeout: 1000,
                     headers: {
                         "cookie": detail.cookies,
-                        "cp-book-facility-session-id": key
+                        "cp-buy-product-before-booking-fb-session-id": key
                     },
                     validateStatus: function (status) {
                         return status < 600;
                     }
-                })
-                counterMap.set(key, counterMap.get(key) + 1)
+                });
+
+                counterMap.set(key, (counterMap.get(key) || 0) + 1);
+
                 if (response) {
                     switch (response.status) {
                         case 200:
-                            // sendEmail(req.body.email, requestDateTime);
-                            logger.info(`Booking Success, Status: ${response.status}, Message: ${JSON.stringify(response.data)}, SessionId: ${key}`)
+                            logger.info(`Booking Success, Status: ${response.status}, Message: ${JSON.stringify(response.data)}, SessionId: ${key}`);
                             isCompleted = true;
                             break;
                         case 499:
-                            logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
+                            logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
+                            detailMap.delete(key);
+                            logger.info(`Removed session with status 499: ${key}`);
                             break;
                         case 500:
                         case 502:
                         case 503:
-                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
+                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
                             break;
                         default:
-                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`)
+                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
                             break;
                     }
                 }
-                if (isCompleted) {
-                    break;
-                }
             } catch (err) {
-                logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`)
+                logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`);
             }
+
+            // 每次请求后随机等待 50–100 ms
+            const time = Math.floor(Math.random() * 51) + 50;
+            await delay(time);
+
+            if (isCompleted) break; // 成功了就跳出内层循环
         }
-        await delay(1000);
+
+        if (isCompleted) {
+            break; // 成功了就跳出外层 while
+        }
+
+        await delay(1000); // 一轮 detailMap 执行后休眠 1s 再来一轮
     }
+
+    // 清除购物车检查的定时器
+    if (cartCheckInterval) {
+        clearInterval(cartCheckInterval);
+        cartCheckInterval = null;
+    }
+
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
         return res.status(400).json(`Booking Fail, No slots available`);
     }
-
 }
 
 function stackUpCookies(origin, newCookies) {
