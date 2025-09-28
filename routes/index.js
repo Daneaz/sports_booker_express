@@ -454,7 +454,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
         if (emailToPhone.has(req.body.email)) {
-            await makeCall(req.username)
+            await makeCall(req.body.email)
         }
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
