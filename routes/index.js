@@ -480,7 +480,7 @@ async function makeCall(email) {
     try {
         logger.info(`Email: ${email}`);
         const call = await client.calls.create({
-            to: emailToPhone[email],             // 目标号码
+            to: emailToPhone.get(email),             // 目标号码
             from: "+17272611807",          // 你在 Twilio 购买的号码
             url: "https://booker.playunitedsg.com/voice" // TwiML，定义电话内容
         });
