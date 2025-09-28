@@ -478,6 +478,7 @@ function delay(time) {
 
 async function makeCall(email) {
     try {
+        logger.info(`Email: ${email}`);
         const call = await client.calls.create({
             to: emailToPhone[email],             // 目标号码
             from: "+17272611807",          // 你在 Twilio 购买的号码
