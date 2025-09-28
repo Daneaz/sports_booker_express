@@ -9,6 +9,16 @@ const twilio = require('twilio')
 
 const client = twilio(process.env.TwilioSid, process.env.TwilioToken);
 
+const callWhiteList = [
+    "eugenewwj@gmail.com",
+    "guo_sha@hotmail.com"
+]
+
+const emailToPhone = new Map();
+
+// 添加数据
+emailToPhone.set("eugenewwj@gmail.com", "+6597985397");
+emailToPhone.set("guo_sha@hotmail.com", "+6583660520");
 
 axios.defaults.withCredentials = true
 
@@ -23,6 +33,13 @@ const FORMAT_WITH_TIME = "YYYY-MM-DD hh:mm a";
 const FORMAT_DATETIME = "YYYY-MM-DDTHH:mm:ss";
 // scheduler counter
 let counter = 0;
+
+router.post("/voice", (req, res) => {
+    const twiml = new twilio.twiml.VoiceResponse();
+    twiml.say({ voice: "alice" }, "Booking Success, Thank You");
+    res.type("text/xml");
+    res.send(twiml.toString());
+});
 
 /* GET home page. */
 router.post('/book', async function (req, res, next) {
@@ -436,8 +453,8 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
-        if (userId === 24692) {
-            await makeCall()
+        if (emailToPhone.has(req.body.email)) {
+            await makeCall(req.username)
         }
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
@@ -459,17 +476,19 @@ function delay(time) {
     });
 }
 
-async function makeCall() {
+async function makeCall(email) {
     try {
         const call = await client.calls.create({
-            to: "+6597985397",             // 目标号码
+            to: emailToPhone[email],             // 目标号码
             from: "+17272611807",          // 你在 Twilio 购买的号码
-            url: "http://demo.twilio.com/docs/voice.xml" // TwiML，定义电话内容
+            url: "https://booker.playunitedsg.com/voice" // TwiML，定义电话内容
         });
         logger.info(`Call initiated, SID: ${call.sid}`);
     } catch (err) {
         logger.info(`Error making call, err: ${err}`);
     }
 }
+
+
 
 module.exports = router;
