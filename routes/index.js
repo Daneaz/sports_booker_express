@@ -5,19 +5,12 @@ const moment = require('moment');
 const schedule = require('node-schedule');
 const logger = require('../logger');
 const axios = require('axios');
-const nodemailer = require('nodemailer');
+const twilio = require('twilio')
+
+const client = twilio(process.env.TwilioSid, process.env.TwilioToken);
 
 
 axios.defaults.withCredentials = true
-
-
-// const transporter = nodemailer.createTransport({
-//     service: 'gmail',
-//     auth: {
-//         user: process.env.email,
-//         pass: process.env.password
-//     }
-// });
 
 
 // static content
@@ -179,7 +172,6 @@ async function bookingSlot(req, res = null) {
 async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
         const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BuyProductBeforeBookingFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`
-        // const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
         let response = await axios.get(GET_SESSION_API, {
             headers: {
                 cookie: cookies
@@ -323,7 +315,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                 if (cartResponse && cartResponse.status === 200 && cartResponse.data) {
                     logger.info(`Shopping Cart Summary: ${JSON.stringify(cartResponse.data)}`);
                     // 检查购物车数量是否大于0
-                    if (cartResponse.data.TotalQuantity > 0) {
+                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.TotalAmount && cartResponse.TotalAmount.Gross > 0) {
                         logger.info(`Items found in cart, TotalQuantity: ${cartResponse.data.TotalQuantity}, marking as completed`);
                         isCompleted = true;
                         // 如果设置了定时器，清除它
@@ -444,6 +436,9 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
     if (res && isCompleted) {
+        if (userId === 24692) {
+            await makeCall()
+        }
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
         return res.status(400).json(`Booking Fail, No slots available`);
@@ -464,23 +459,17 @@ function delay(time) {
     });
 }
 
-
-// function sendEmail(email, requestDateTime) {
-//     let mailOptions = {
-//         from: process.env.email,
-//         to: email,
-//         subject: `Booking Success`,
-//         text: `Your booking on ${requestDateTime} is SUCCESS`
-//     };
-//
-//     transporter.sendMail(mailOptions, function (error, info) {
-//         if (error) {
-//             logger.error(error);
-//         } else {
-//             logger.info(`Email sent: ${info.response}`);
-//         }
-//     });
-//
-// }
+async function makeCall() {
+    try {
+        const call = await client.calls.create({
+            to: "+6597985397",             // 目标号码
+            from: "+17272611807",          // 你在 Twilio 购买的号码
+            url: "http://demo.twilio.com/docs/voice.xml" // TwiML，定义电话内容
+        });
+        logger.info(`Call initiated, SID: ${call.sid}`);
+    } catch (err) {
+        logger.info(`Error making call, err: ${err}`);
+    }
+}
 
 module.exports = router;
