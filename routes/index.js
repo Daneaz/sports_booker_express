@@ -332,7 +332,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                 if (cartResponse && cartResponse.status === 200 && cartResponse.data) {
                     logger.info(`Shopping Cart Summary: ${JSON.stringify(cartResponse.data)}`);
                     // 检查购物车数量是否大于0
-                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.TotalAmount && cartResponse.TotalAmount.Gross > 0) {
+                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.TotalAmount.Gross > 0) {
                         logger.info(`Items found in cart, TotalQuantity: ${cartResponse.data.TotalQuantity}, marking as completed`);
                         isCompleted = true;
                         // 如果设置了定时器，清除它
