@@ -36,7 +36,7 @@ let counter = 0;
 
 router.post("/voice", (req, res) => {
     const twiml = new twilio.twiml.VoiceResponse();
-    twiml.say({ voice: "alice" }, "Booking Success, Thank You");
+    twiml.say({voice: "alice"}, "Booking Success, Thank You");
     res.type("text/xml");
     res.send(twiml.toString());
 });
@@ -171,8 +171,8 @@ async function bookingSlot(req, res = null) {
         }
 
         let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
-        // cal for holding time, deduct 10 ms to fire the event in advance, likely we can arrive the server end just on time
-        let holdingTime = bookingTime.valueOf() - moment.now() - 10
+        // cal for holding time
+        let holdingTime = bookingTime.valueOf() - moment.now()
         logger.info(`Holding time Please wait ${holdingTime / 1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
@@ -332,7 +332,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                 if (cartResponse && cartResponse.status === 200 && cartResponse.data) {
                     logger.info(`Shopping Cart Summary: ${JSON.stringify(cartResponse.data)}`);
                     // 检查购物车数量是否大于0
-                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.TotalAmount.Gross > 0) {
+                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.data.TotalAmount.Gross > 0) {
                         logger.info(`Items found in cart, TotalQuantity: ${cartResponse.data.TotalQuantity}, marking as completed`);
                         isCompleted = true;
                         // 如果设置了定时器，清除它
@@ -353,8 +353,8 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
         });
     };
 
-    // 启动定时查询购物车，每2秒检查一次
-    cartCheckInterval = setInterval(checkShoppingCart, 2000);
+    // 启动定时查询购物车，每5秒检查一次
+    cartCheckInterval = setInterval(checkShoppingCart, 5000);
 
 
     while (!isCompleted && moment.now() < expiredTime) {
@@ -394,7 +394,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
             try {
                 const response = await axios.post(BOOKING_API, data, {
-                    timeout: 1000,
+                    timeout: 500,
                     headers: {
                         "cookie": detail.cookies,
                         "cp-buy-product-before-booking-fb-session-id": key
@@ -414,13 +414,19 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                             break;
                         case 499:
                             logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                            detailMap.delete(key);
-                            logger.info(`Removed session with status 499: ${key}`);
+                            if (counterMap.get(key) >= 5) {
+                                detailMap.delete(key);
+                                logger.info(`Removed session with status 499: ${key}`);
+                            }
                             break;
                         case 500:
                         case 502:
                         case 503:
                             logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
+                            if (counterMap.get(key) >= 15) {
+                                detailMap.delete(key);
+                                logger.info(`Removed session with status 5xx: ${key}`);
+                            }
                             break;
                         default:
                             logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
@@ -452,10 +458,10 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
     }
 
     logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
+    if (isCompleted && emailToPhone.has(req.body.email)) {
+        await makeCall(req.body.email)
+    }
     if (res && isCompleted) {
-        if (emailToPhone.has(req.body.email)) {
-            await makeCall(req.body.email)
-        }
         return res.status(200).json(`Booking Success, Please proceed to payment.`);
     } else if (res) {
         return res.status(400).json(`Booking Fail, No slots available`);
@@ -489,7 +495,6 @@ async function makeCall(email) {
         logger.info(`Error making call, err: ${err}`);
     }
 }
-
 
 
 module.exports = router;
