@@ -11,7 +11,8 @@ const client = twilio(process.env.TwilioSid, process.env.TwilioToken);
 
 const callWhiteList = [
     "eugenewwj@gmail.com",
-    "guo_sha@hotmail.com"
+    "guo_sha@hotmail.com",
+    "naruto921210@gmail.com"
 ]
 
 const emailToPhone = new Map();
