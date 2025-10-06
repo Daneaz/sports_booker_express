@@ -358,21 +358,15 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
 
     while (!isCompleted && moment.now() < expiredTime) {
-        const bookingPromises = [];
-
-        // 处理需要刷新的session
-        if (detailMap.size == 0) {
+        // 如果需要刷新 session
+        if (detailMap.size === 0) {
             logger.info(`Refreshing ${detailMap.size} sessions with status 499`);
-
-            // 获取新的可用时段
             let newZoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
             if (newZoneIds && newZoneIds.length > 0) {
-                // 填充新的详情
                 let newDetailList = await fillUpDetail(req, res, cookies, userId, newZoneIds, requestDate, requestDateTime);
 
                 if (newDetailList && newDetailList.length > 0) {
-                    // 添加新的session到执行流程中
                     for (let i = 0; i < newDetailList.length; i++) {
                         counterMap.set(newDetailList[i].sessionId, 1);
                         detailMap.set(newDetailList[i].sessionId, newDetailList[i]);
@@ -380,75 +374,75 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                     }
                 }
             }
-
         }
 
+        // === 👇 并行调用开始 ===
+        const bookingPromises = [];
+
         for (const [key, detail] of detailMap.entries()) {
-            let data = {
+            const data = {
                 "ruleId": detail.ruleId,
                 "OtherCalendarEventBookedAtRequestedTime": false,
                 "HasUserRequiredProducts": false,
                 "ShouldBuyRequiredProductOnDebit": true
             };
-            logger.info(`Firing request to OCBC server...., SessionId: ${key}`);
 
-            try {
-                const response = await axios.post(BOOKING_API, data, {
-                    timeout: 500,
-                    headers: {
-                        "cookie": detail.cookies,
-                        "cp-buy-product-before-booking-fb-session-id": key
-                    },
-                    validateStatus: function (status) {
-                        return status < 600;
-                    }
-                });
+            bookingPromises.push(
+                (async () => {
+                    logger.info(`Firing parallel request to OCBC server...., SessionId: ${key}`);
+                    try {
+                        const response = await axios.post(BOOKING_API, data, {
+                            timeout: 500,
+                            headers: {
+                                "cookie": detail.cookies,
+                                "cp-buy-product-before-booking-fb-session-id": key
+                            },
+                            validateStatus: status => status < 600
+                        });
 
-                counterMap.set(key, (counterMap.get(key) || 0) + 1);
+                        counterMap.set(key, (counterMap.get(key) || 0) + 1);
 
-                if (response) {
-                    switch (response.status) {
-                        case 200:
-                            logger.info(`Booking Success, Status: ${response.status}, Message: ${JSON.stringify(response.data)}, SessionId: ${key}`);
-                            isCompleted = true;
-                            break;
-                        case 499:
-                            logger.info(`Slot not ready, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                            if (counterMap.get(key) >= 5) {
-                                detailMap.delete(key);
-                                logger.info(`Removed session with status 499: ${key}`);
+                        if (response) {
+                            switch (response.status) {
+                                case 200:
+                                    logger.info(`✅ Booking Success, SessionId: ${key}`);
+                                    isCompleted = true;
+                                    break;
+                                case 499:
+                                    logger.info(`Slot not ready, SessionId: ${key}, Trying ${counterMap.get(key)}`);
+                                    if (counterMap.get(key) >= 5) {
+                                        detailMap.delete(key);
+                                        logger.info(`Removed session with status 499: ${key}`);
+                                    }
+                                    break;
+                                case 500:
+                                case 502:
+                                case 503:
+                                    logger.info(`Server Error ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
+                                    if (counterMap.get(key) >= 15) {
+                                        detailMap.delete(key);
+                                        logger.info(`Removed session with status 5xx: ${key}`);
+                                    }
+                                    break;
+                                default:
+                                    logger.info(`Unknown Status: ${response.status}, SessionId: ${key}`);
+                                    break;
                             }
-                            break;
-                        case 500:
-                        case 502:
-                        case 503:
-                            logger.info(`Server Error, Status: ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                            if (counterMap.get(key) >= 15) {
-                                detailMap.delete(key);
-                                logger.info(`Removed session with status 5xx: ${key}`);
-                            }
-                            break;
-                        default:
-                            logger.info(`Unknown Status, Status: ${response.status}, Message: ${response.data}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                            break;
+                        }
+                    } catch (err) {
+                        logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`);
                     }
-                }
-            } catch (err) {
-                logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`);
-            }
-
-            // 每次请求后随机等待 50–100 ms
-            const time = Math.floor(Math.random() * 51) + 50;
-            await delay(time);
-
-            if (isCompleted) break; // 成功了就跳出内层循环
+                })()
+            );
         }
 
-        if (isCompleted) {
-            break; // 成功了就跳出外层 while
-        }
+        // 并发执行所有请求
+        await Promise.allSettled(bookingPromises);
+        // === 👆 并行调用结束 ===
 
-        await delay(1000); // 一轮 detailMap 执行后休眠 1s 再来一轮
+        if (isCompleted) break;
+
+        await delay(1000); // 一轮结束后等1s再重试
     }
 
     // 清除购物车检查的定时器
