@@ -173,7 +173,7 @@ async function bookingSlot(req, res = null) {
 
         let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
         // cal for holding time, 网络延迟181ms
-        let holdingTime = bookingTime.valueOf() - moment.now() - 181
+        let holdingTime = bookingTime.valueOf() - moment.now() - 100
         logger.info(`Holding time Please wait ${holdingTime / 1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
@@ -393,7 +393,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                     logger.info(`Firing parallel request to OCBC server...., SessionId: ${key}`);
                     try {
                         const response = await axios.post(BOOKING_API, data, {
-                            timeout: 500,
+                            timeout: 1000,
                             headers: {
                                 "cookie": detail.cookies,
                                 "cp-buy-product-before-booking-fb-session-id": key
