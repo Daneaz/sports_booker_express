@@ -303,6 +303,7 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 
 async function bookSlot(res, detailList, req = null, userId = null, cookies = null, requestDate = null, requestDateTime = null) {
     let expiredTime = moment().add(35, 'minutes')
+    let startToRefresh = false
     const counterMap = new Map();
     const detailMap = new Map();
 
@@ -360,8 +361,9 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
     while (!isCompleted && moment.now() < expiredTime) {
         // 如果需要刷新 session
-        if (detailMap.size === 0) {
-            logger.info(`Refreshing ${detailMap.size} sessions with status 499`);
+
+        if (startToRefresh) {
+            logger.info(`Refreshing sessions`);
             let newZoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
 
             if (newZoneIds && newZoneIds.length > 0) {
@@ -376,6 +378,8 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                 }
             }
         }
+
+
 
         // === 👇 并行调用开始 ===
         const bookingPromises = [];
@@ -411,7 +415,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                                     break;
                                 case 499:
                                     logger.info(`Slot not ready, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                                    if (counterMap.get(key) >= 5) {
+                                    if (counterMap.get(key) >= 100) {
                                         detailMap.delete(key);
                                         logger.info(`Removed session with status 499: ${key}`);
                                     }
@@ -420,7 +424,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                                 case 502:
                                 case 503:
                                     logger.info(`Server Error ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                                    if (counterMap.get(key) >= 15) {
+                                    if (counterMap.get(key) >= 100) {
                                         detailMap.delete(key);
                                         logger.info(`Removed session with status 5xx: ${key}`);
                                     }
@@ -439,11 +443,12 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
 
         // 并发执行所有请求
         await Promise.allSettled(bookingPromises);
+        startToRefresh = true
         // === 👆 并行调用结束 ===
 
         if (isCompleted) break;
 
-        await delay(1000); // 一轮结束后等1s再重试
+        await delay(200); // 一轮结束后等1s再重试
     }
 
     // 清除购物车检查的定时器
