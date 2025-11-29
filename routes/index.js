@@ -25,9 +25,9 @@ axios.defaults.withCredentials = true
 
 
 // static content
-const LOGIN_API = "https://sportshub.perfectgym.com/clientportal2/Auth/Login"
-const QUERY_DETAIL_API = "https://sportshub.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/SetFacilityBookingDetailsWizardStep/Next";
-const BOOKING_API = "https://sportshub.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/ChooseBookingRuleStep/Next"
+const LOGIN_API = "https://thekallang.perfectgym.com/clientportal2/Auth/Login"
+const QUERY_DETAIL_API = "https://thekallang.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/SetFacilityBookingDetailsWizardStep/Next";
+const BOOKING_API = "https://thekallang.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/ChooseBookingRuleStep/Next"
 
 const REQUEST_FORMAT = "YYYY-MM-DD";
 const FORMAT_WITH_TIME = "YYYY-MM-DD hh:mm a";
@@ -189,7 +189,7 @@ async function bookingSlot(req, res = null) {
 
 async function obtainSession(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BuyProductBeforeBookingFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`
+        const GET_SESSION_API = `https://thekallang.perfectgym.com/clientportal2/FacilityBookings/BuyProductBeforeBookingFacility/Start?RedirectUrl=https:%2F%2Fthekallang.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`
         let response = await axios.get(GET_SESSION_API, {
             headers: {
                 cookie: cookies
@@ -230,7 +230,7 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
 
 async function getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        const GET_SESSION_API = `https://sportshub.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fsportshub.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
+        const GET_SESSION_API = `https://thekallang.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fthekallang.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
         let response = await axios.get(GET_SESSION_API, {
             headers: {
                 cookie: cookies
@@ -322,7 +322,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
             setTimeout(() => reject(new Error('Cart check timeout')), 2000)
         );
 
-        const cartCheckPromise = axios.get('https://sportshub.perfectgym.com/clientportal2/Shopping/ShoppingCart/GetShoppingCartSummary', {
+        const cartCheckPromise = axios.get('https://thekallang.perfectgym.com/clientportal2/Shopping/ShoppingCart/GetShoppingCartSummary', {
             headers: {
                 "cookie": detailList[0].cookies // 使用第一个详情的cookies
             },
