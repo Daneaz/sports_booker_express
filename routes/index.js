@@ -20,7 +20,7 @@ const emailToPhone = new Map();
 // 添加数据
 emailToPhone.set("eugenewwj@gmail.com", "+6597985397");
 emailToPhone.set("guo_sha@hotmail.com", "+6583660520");
-
+emailToPhone.set("naruto921210@gmail.com", "+6596559316");
 axios.defaults.withCredentials = true
 
 
