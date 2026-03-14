@@ -378,89 +378,34 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 }
 
 async function bookSlot(res, detailList, req = null, userId = null, cookies = null, requestDate = null, requestDateTime = null) {
-    let expiredTime = getSyncMoment().add(35, 'minutes')
-    let startToRefresh = false
-    const counterMap = new Map();
-    const detailMap = new Map();
-
+    const startTime = getSyncNow();
+    const expiredTime = getSyncMoment().add(35, 'minutes');
     let isCompleted = false;
     let cartCheckInterval = null;
 
-    for (let i = 0; i < detailList.length; i++) {
-        counterMap.set(detailList[i].sessionId, 1);
-        detailMap.set(detailList[i].sessionId, detailList[i]);
-    }
+    // --- Worker Pool & Session Logic ---
+    const activeWorkers = new Set();
+    const processedSessions = new Set();
 
-    // 启动并发查询购物车的进程
-    const checkShoppingCart = () => {
-        // 使用Promise.race来处理超时
-        const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Cart check timeout')), 2000)
-        );
-
-        const cartCheckPromise = axios.get('https://thekallang.perfectgym.com/clientportal2/Shopping/ShoppingCart/GetShoppingCartSummary', {
-            headers: {
-                "cookie": detailList[0].cookies // 使用第一个详情的cookies
-            },
-            validateStatus: function (status) {
-                return status < 600;
-            }
-        })
-            .then(cartResponse => {
-                if (cartResponse && cartResponse.status === 200 && cartResponse.data) {
-                    logger.info(`Shopping Cart Summary: ${JSON.stringify(cartResponse.data)}`);
-                    // 检查购物车数量是否大于0
-                    if (cartResponse.data.TotalQuantity > 0 && cartResponse.data.TotalAmount.Gross > 0) {
-                        logger.info(`Items found in cart, TotalQuantity: ${cartResponse.data.TotalQuantity}, marking as completed`);
-                        isCompleted = true;
-                        // 如果设置了定时器，清除它
-                        if (cartCheckInterval) {
-                            clearInterval(cartCheckInterval);
-                            cartCheckInterval = null;
-                        }
-                    }
-                }
-                return cartResponse;
-            })
-            .catch(cartErr => {
-                logger.error(`Failed to check shopping cart: ${cartErr}`);
-            });
-
-        return Promise.race([cartCheckPromise, timeoutPromise]).catch(err => {
-            logger.error(`Cart check race error: ${err}`);
-        });
+    // 获取当前阶段的延迟时间
+    const getPhaseDelay = () => {
+        const elapsed = getSyncNow() - startTime;
+        if (elapsed < 5000) return 0;       // 冲刺期: 0ms
+        if (elapsed < 60000) return 100;    // 稳定期: 100ms
+        return 500;                         // 捡漏期: 500ms
     };
 
-    // 启动定时查询购物车，每5秒检查一次
-    cartCheckInterval = setInterval(checkShoppingCart, 5000);
+    // 启动一个预订 Worker
+    const startWorker = async (detail) => {
+        if (processedSessions.has(detail.sessionId)) return;
+        processedSessions.add(detail.sessionId);
+        activeWorkers.add(detail.sessionId);
 
+        let retryCount = 0;
+        logger.info(`[Worker Start] SessionId: ${detail.sessionId}`);
 
-    while (!isCompleted && getSyncNow() < expiredTime.valueOf()) {
-        // 如果需要刷新 session
-
-        if (startToRefresh) {
-            logger.info(`Refreshing sessions`);
-            let newZoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
-
-            if (newZoneIds && newZoneIds.length > 0) {
-                let newDetailList = await fillUpDetail(req, res, cookies, userId, newZoneIds, requestDate, requestDateTime);
-
-                if (newDetailList && newDetailList.length > 0) {
-                    for (let i = 0; i < newDetailList.length; i++) {
-                        counterMap.set(newDetailList[i].sessionId, 1);
-                        detailMap.set(newDetailList[i].sessionId, newDetailList[i]);
-                        logger.info(`Added new session: ${newDetailList[i].sessionId} to execution flow`);
-                    }
-                }
-            }
-        }
-
-
-
-        // === 👇 并行调用开始 ===
-        const bookingPromises = [];
-
-        for (const [key, detail] of detailMap.entries()) {
+        while (!isCompleted && getSyncNow() < expiredTime.valueOf()) {
+            retryCount++;
             const data = {
                 "ruleId": detail.ruleId,
                 "OtherCalendarEventBookedAtRequestedTime": false,
@@ -468,79 +413,108 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                 "ShouldBuyRequiredProductOnDebit": true
             };
 
-            bookingPromises.push(
-                (async () => {
-                    logger.info(`Firing parallel request to OCBC server...., SessionId: ${key}`);
-                    try {
-                        const response = await axios.post(BOOKING_API, data, {
-                            timeout: 3000, // 增加到 3 秒，给服务器处理预订逻辑的缓冲时间
-                            headers: {
-                                "cookie": detail.cookies,
-                                "cp-buy-product-before-booking-fb-session-id": key
-                            },
-                            validateStatus: status => status < 600
-                        });
+            try {
+                const response = await axios.post(BOOKING_API, data, {
+                    timeout: 3000,
+                    headers: {
+                        "cookie": detail.cookies,
+                        "cp-buy-product-before-booking-fb-session-id": detail.sessionId
+                    },
+                    validateStatus: status => status < 600
+                });
 
-                        counterMap.set(key, (counterMap.get(key) || 0) + 1);
+                if (response.status === 200) {
+                    logger.info(`✅ [Worker Success] SessionId: ${detail.sessionId}`);
+                    isCompleted = true;
+                    // 成功后立即触发一次购物车检查
+                    await checkShoppingCart();
+                    break;
+                } else if (response.status === 499) {
+                    // 还没放场，高频重试
+                    const delayMs = getPhaseDelay();
+                    if (delayMs > 0) await delay(delayMs);
+                } else if (response.status >= 500) {
+                    logger.warn(`[Worker Server Error] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}`);
+                    await delay(500); // 服务器出错，稍等
+                } else {
+                    logger.info(`[Worker Status] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}`);
+                    if (retryCount >= 200) break; // 单个 Session 尝试太多次，放弃
+                    await delay(getPhaseDelay() || 100);
+                }
+            } catch (err) {
+                logger.error(`[Worker Exception] ${err.message}, SessionId: ${detail.sessionId}`);
+                await delay(1000);
+            }
+        }
+        activeWorkers.delete(detail.sessionId);
+        logger.info(`[Worker End] SessionId: ${detail.sessionId}, Total Retries: ${retryCount}`);
+    };
 
-                        if (response) {
-                            switch (response.status) {
-                                case 200:
-                                    logger.info(`✅ Booking Success, SessionId: ${key}`);
-                                    isCompleted = true;
-                                    break;
-                                case 499:
-                                    logger.info(`Slot not ready, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                                    if (counterMap.get(key) >= 100) {
-                                        detailMap.delete(key);
-                                        logger.info(`Removed session with status 499: ${key}`);
-                                    }
-                                    break;
-                                case 500:
-                                case 502:
-                                case 503:
-                                    logger.info(`Server Error ${response.status}, SessionId: ${key}, Trying ${counterMap.get(key)}`);
-                                    if (counterMap.get(key) >= 100) {
-                                        detailMap.delete(key);
-                                        logger.info(`Removed session with status 5xx: ${key}`);
-                                    }
-                                    break;
-                                default:
-                                    logger.info(`Unknown Status: ${response.status}, SessionId: ${key}`);
-                                    break;
-                            }
-                        }
-                    } catch (err) {
-                        logger.error(`Unknown Exception, BookSlot fail, Error: ${err}, SessionId: ${key}`);
-                    }
-                })()
-            );
+    // 购物车检查逻辑
+    const checkShoppingCart = async () => {
+        try {
+            const cartResponse = await axios.get('https://thekallang.perfectgym.com/clientportal2/Shopping/ShoppingCart/GetShoppingCartSummary', {
+                headers: { "cookie": detailList[0].cookies },
+                timeout: 2000,
+                validateStatus: status => status < 600
+            });
+
+            if (cartResponse.status === 200 && cartResponse.data) {
+                logger.info(`[Cart Check] TotalQuantity: ${cartResponse.data.TotalQuantity}, Gross: ${cartResponse.data.TotalAmount.Gross}`);
+                if (cartResponse.data.TotalQuantity > 0 && cartResponse.data.TotalAmount.Gross > 0) {
+                    isCompleted = true;
+                    return true;
+                }
+            }
+        } catch (err) {
+            logger.error(`[Cart Check Error] ${err.message}`);
+        }
+        return false;
+    };
+
+    // 启动初始 Workers
+    detailList.forEach(detail => startWorker(detail));
+
+    // 定时刷新 Session 的保底逻辑 (每 30 秒)
+    const refreshInterval = setInterval(async () => {
+        if (isCompleted || getSyncNow() >= expiredTime.valueOf()) {
+            clearInterval(refreshInterval);
+            return;
         }
 
-        // 并发执行所有请求
-        await Promise.allSettled(bookingPromises);
-        startToRefresh = true
-        // === 👆 并行调用结束 ===
+        if (activeWorkers.size < 3) { // 如果活跃 Worker 过少，刷新 Session
+            logger.info(`[Session Manager] Low workers (${activeWorkers.size}), refreshing...`);
+            const newZoneIds = await getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime);
+            if (newZoneIds && newZoneIds.length > 0) {
+                const newDetails = await fillUpDetail(req, res, cookies, userId, newZoneIds, requestDate, requestDateTime);
+                if (newDetails) newDetails.forEach(d => startWorker(d));
+            }
+        }
+    }, 30000);
 
-        if (isCompleted) break;
+    // 每 10 秒保底检查一次购物车
+    cartCheckInterval = setInterval(checkShoppingCart, 10000);
 
-        await delay(200); // 一轮结束后等1s再重试
+    // 等待所有 Worker 结束或成功标记
+    while (!isCompleted && activeWorkers.size > 0 && getSyncNow() < expiredTime.valueOf()) {
+        await delay(1000);
     }
 
-    // 清除购物车检查的定时器
-    if (cartCheckInterval) {
-        clearInterval(cartCheckInterval);
-        cartCheckInterval = null;
-    }
+    // 清理资源
+    clearInterval(refreshInterval);
+    if (cartCheckInterval) clearInterval(cartCheckInterval);
 
-    logger.info(`Exising, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`)
+    logger.info(`Exiting, ${isCompleted ? "Booking Success!" : "Booking Fail!"}`);
     if (isCompleted && emailToPhone.has(req.body.email)) {
-        await makeCall(req.body.email)
+        await makeCall(req.body.email);
     }
-    if (res && isCompleted) {
-        return res.status(200).json(`Booking Success, Please proceed to payment.`);
-    } else if (res) {
-        return res.status(400).json(`Booking Fail, No slots available`);
+
+    if (res) {
+        if (isCompleted) {
+            return res.status(200).json(`Booking Success, Please proceed to payment.`);
+        } else {
+            return res.status(400).json(`Booking Fail, No slots available`);
+        }
     }
 }
 
