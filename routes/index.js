@@ -22,6 +22,7 @@ emailToPhone.set("eugenewwj@gmail.com", "+6597985397");
 emailToPhone.set("guo_sha@hotmail.com", "+6583660520");
 emailToPhone.set("naruto921210@gmail.com", "+6596559316");
 axios.defaults.withCredentials = true;
+axios.defaults.timeout = 10000; // 设置全局默认超时时间为 10 秒
 
 // === HTTP Request Logging Interceptors ===
 axios.interceptors.request.use(
@@ -56,6 +57,48 @@ axios.interceptors.response.use(
 );
 // =========================================
 
+// === Time Sync Logic ===
+let timeOffset = 0;
+
+async function syncTime() {
+    try {
+        const startLocal = Date.now();
+        // 使用 HEAD 请求获取服务器时间，减少数据传输
+        const response = await axios.head("https://thekallang.perfectgym.com/clientportal2/", {
+            timeout: 5000,
+            // 确保不被拦截器记录过多日志（可选，取决于拦截器实现）
+        });
+        const endLocal = Date.now();
+        const serverDateStr = response.headers.date; // e.g., "Wed, 21 Oct 2015 07:28:00 GMT"
+        
+        if (serverDateStr) {
+            const serverTime = new Date(serverDateStr).getTime();
+            // 估计往返时间 (RTT)
+            const rtt = endLocal - startLocal;
+            // 假设服务器时间是在 RTT 中点生成的
+            const adjustedServerTime = serverTime + (rtt / 2);
+            timeOffset = adjustedServerTime - endLocal;
+            
+            logger.info(`[Time Sync] Server Time: ${new Date(serverTime).toISOString()}, Local Time: ${new Date(endLocal).toISOString()}, Offset: ${timeOffset}ms, RTT: ${rtt}ms`);
+        }
+    } catch (err) {
+        logger.error(`[Time Sync] Failed to sync time: ${err.message}`);
+    }
+}
+
+// 每 15 分钟自动同步一次，防止时钟漂移
+setInterval(syncTime, 15 * 60 * 1000);
+// 立即进行首次同步
+syncTime();
+
+function getSyncMoment() {
+    return moment().add(timeOffset, 'milliseconds');
+}
+
+function getSyncNow() {
+    return Date.now() + timeOffset;
+}
+// =========================
 
 // static content
 const LOGIN_API = "https://thekallang.perfectgym.com/clientportal2/Auth/Login"
@@ -205,8 +248,8 @@ async function bookingSlot(req, res = null) {
         }
 
         let bookingTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(7, "days")
-        // cal for holding time, 网络延迟181ms
-        let holdingTime = bookingTime.valueOf() - moment.now() - 25
+        // cal for holding time, 使用同步后的时间
+        let holdingTime = bookingTime.valueOf() - getSyncNow()
         logger.info(`Holding time Please wait ${holdingTime / 1000} seconds... (${holdingTime} milliseconds)`)
         await delay(holdingTime);
 
@@ -335,7 +378,7 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 }
 
 async function bookSlot(res, detailList, req = null, userId = null, cookies = null, requestDate = null, requestDateTime = null) {
-    let expiredTime = moment().add(35, 'minutes')
+    let expiredTime = getSyncMoment().add(35, 'minutes')
     let startToRefresh = false
     const counterMap = new Map();
     const detailMap = new Map();
@@ -392,7 +435,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
     cartCheckInterval = setInterval(checkShoppingCart, 5000);
 
 
-    while (!isCompleted && moment.now() < expiredTime) {
+    while (!isCompleted && getSyncNow() < expiredTime.valueOf()) {
         // 如果需要刷新 session
 
         if (startToRefresh) {
@@ -430,7 +473,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                     logger.info(`Firing parallel request to OCBC server...., SessionId: ${key}`);
                     try {
                         const response = await axios.post(BOOKING_API, data, {
-                            timeout: 1000,
+                            timeout: 3000, // 增加到 3 秒，给服务器处理预订逻辑的缓冲时间
                             headers: {
                                 "cookie": detail.cookies,
                                 "cp-buy-product-before-booking-fb-session-id": key
