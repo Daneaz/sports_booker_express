@@ -21,7 +21,40 @@ const emailToPhone = new Map();
 emailToPhone.set("eugenewwj@gmail.com", "+6597985397");
 emailToPhone.set("guo_sha@hotmail.com", "+6583660520");
 emailToPhone.set("naruto921210@gmail.com", "+6596559316");
-axios.defaults.withCredentials = true
+axios.defaults.withCredentials = true;
+
+// === HTTP Request Logging Interceptors ===
+axios.interceptors.request.use(
+    (config) => {
+        logger.info(`[HTTP Request] ${config.method.toUpperCase()} ${config.url}`);
+        if (config.data) {
+            logger.info(`[HTTP Request Body] ${JSON.stringify(config.data)}`);
+        }
+        return config;
+    },
+    (error) => {
+        logger.error(`[HTTP Request Error] ${error.message}`);
+        return Promise.reject(error);
+    }
+);
+
+axios.interceptors.response.use(
+    (response) => {
+        logger.info(`[HTTP Response] ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
+        // 可选：记录响应体内容，但可能会很长，这里选择不记录
+        return response;
+    },
+    (error) => {
+        if (error.response) {
+            logger.error(`[HTTP Response Error] ${error.config.method.toUpperCase()} ${error.config.url} - Status: ${error.response.status}`);
+            logger.error(`[HTTP Error Detail] ${JSON.stringify(error.response.data)}`);
+        } else {
+            logger.error(`[HTTP Connection Error] ${error.message}`);
+        }
+        return Promise.reject(error);
+    }
+);
+// =========================================
 
 
 // static content
@@ -230,7 +263,7 @@ async function obtainSession(req, res, cookies, userId, requestDate, requestDate
 
 async function getAvailableSlot(req, res, cookies, userId, requestDate, requestDateTime) {
     try {
-        const GET_SESSION_API = `https://thekallang.perfectgym.com/clientportal2/FacilityBookings/BookFacility/Start?RedirectUrl=https:%2F%2Fthekallang.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`;
+        const GET_SESSION_API = `https://thekallang.perfectgym.com/clientportal2/FacilityBookings/BuyProductBeforeBookingFacility/Start?RedirectUrl=https:%2F%2Fthekallang.perfectgym.com%2Fclientportal2%2F%23%2FFacilityBooking%3FclubId%3D1%26zoneTypeId%3D${req.body.type.value}%26date%3D${requestDate}&clubId=1&startDate=${requestDateTime}&zoneTypeId=${req.body.type.value}`
         let response = await axios.get(GET_SESSION_API, {
             headers: {
                 cookie: cookies
