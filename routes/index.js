@@ -359,11 +359,18 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
     const processedSessions = new Set();
 
     // 获取当前阶段的延迟时间
+    // 获取当前阶段的延迟时间 (拟人化精细调整)
     const getPhaseDelay = () => {
         const elapsed = getSyncNow() - startTime;
-        if (elapsed < 5000) return 0;       // 冲刺期: 0ms
-        if (elapsed < 60000) return 100;    // 稳定期: 100ms
-        return 500;                         // 捡漏期: 500ms
+        if (elapsed < 5000) return 0;                    // 0-5秒: 0ms (冲刺期)
+        if (elapsed < 60000) return 100;                 // 5-60秒: 100ms
+        if (elapsed < 120000) return 200;                // 60秒-2分钟: 200ms
+        if (elapsed < 300000) return 400;                // 2-5分钟: 400ms
+        if (elapsed < 540000) return 3000;               // 5-9分钟: 3000ms (长间隔避险)
+        if (elapsed < 840000) return 200;                // 9-14分钟: 200ms (捡漏重试)
+        if (elapsed < 1140000) return 5000;              // 14-19分钟: 5000ms
+        if (elapsed < 1380000) return 200;               // 19-23分钟: 200ms
+        return 5000;                                     // 23分钟后: 5000ms
     };
 
     // 启动一个预订 Worker
