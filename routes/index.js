@@ -24,38 +24,6 @@ emailToPhone.set("naruto921210@gmail.com", "+6596559316");
 axios.defaults.withCredentials = true;
 axios.defaults.timeout = 10000; // 设置全局默认超时时间为 10 秒
 
-// === HTTP Request Logging Interceptors ===
-axios.interceptors.request.use(
-    (config) => {
-        logger.info(`[HTTP Request] ${config.method.toUpperCase()} ${config.url}`);
-        if (config.data) {
-            logger.info(`[HTTP Request Body] ${JSON.stringify(config.data)}`);
-        }
-        return config;
-    },
-    (error) => {
-        logger.error(`[HTTP Request Error] ${error.message}`);
-        return Promise.reject(error);
-    }
-);
-
-axios.interceptors.response.use(
-    (response) => {
-        logger.info(`[HTTP Response] ${response.config.method.toUpperCase()} ${response.config.url} - Status: ${response.status}`);
-        // 可选：记录响应体内容，但可能会很长，这里选择不记录
-        return response;
-    },
-    (error) => {
-        if (error.response) {
-            logger.error(`[HTTP Response Error] ${error.config.method.toUpperCase()} ${error.config.url} - Status: ${error.response.status}`);
-            logger.error(`[HTTP Error Detail] ${JSON.stringify(error.response.data)}`);
-        } else {
-            logger.error(`[HTTP Connection Error] ${error.message}`);
-        }
-        return Promise.reject(error);
-    }
-);
-// =========================================
 
 // === Time Sync Logic ===
 let timeOffset = 0;
@@ -207,6 +175,9 @@ async function checkingSlot(req, res) {
 
 async function bookingSlot(req, res = null) {
     try {
+        // 在预订前执行一次时间同步
+        await syncTime();
+
         let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
         let requestDateTime = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).format(FORMAT_DATETIME)
 
