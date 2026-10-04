@@ -312,6 +312,7 @@ async function getAvailableSlot(req, res, cookies, userId, requestDate, requestD
 async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, requestDateTime) {
     try {
         let duration = req.body.duration;
+        let expectedBookingCount = getExpectedSlotCount(duration);
         let detailList = [];
         for (let i = 0; i < zoneIds.length; i++) {
             let {
@@ -337,12 +338,20 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 
             let detailCookies = response.headers["set-cookie"]
             stackUpCookies(tempCookies, detailCookies)
-            let detail = {
-                ruleId: response.data.Data.RuleId,
-                sessionId: sessionId,
-                cookies: tempCookies
+            let ruleId = response.data.Data.RuleId;
+            let rule = response.data.Data.Rules && response.data.Data.Rules[ruleId];
+            let bookingCount = rule && rule.BookingCount;
+            if (bookingCount !== expectedBookingCount) {
+                logger.warn(`[Booking Count Mismatch] ZoneId: ${zoneIds[i]}, Duration: ${duration}, ExpectedBookingCount: ${expectedBookingCount}, ActualBookingCount: ${bookingCount}, RuleId: ${ruleId}, SessionId: ${sessionId}`);
+                continue;
             }
-            logger.info(`Obtained ruleId: ${response.data.Data.RuleId}, sessionId: ${sessionId}`)
+            let detail = {
+                ruleId,
+                sessionId: sessionId,
+                cookies: tempCookies,
+                bookingCount
+            }
+            logger.info(`Obtained ruleId: ${ruleId}, bookingCount: ${bookingCount}, sessionId: ${sessionId}`)
             detailList.push(detail);
         }
 
@@ -588,6 +597,14 @@ function delay(time) {
     return new Promise(function (resolve) {
         setTimeout(resolve, time)
     });
+}
+
+function getExpectedSlotCount(duration) {
+    const parsedDuration = Number(duration);
+    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
+        return 1;
+    }
+    return Math.max(1, Math.ceil(parsedDuration / 60));
 }
 
 async function makeCall(email) {
