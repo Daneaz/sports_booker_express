@@ -114,11 +114,16 @@ router.post('/book', async function (req, res, next) {
             counter++;
             logger.info(`Job has scheduled for ${req.body.type.text} on ${scheduleDate.toLocaleString()}... Current job count: ${counter}`)
 
-            schedule.scheduleJob(scheduleDate.toDate(), function () {
+            schedule.scheduleJob(scheduleDate.toDate(), async function () {
                 logger.info("Starting to run booker...")
-                bookingSlot(req);
-                counter--;
-                logger.info(`Current job count: ${counter}`)
+                try {
+                    await bookingSlot(req);
+                } catch (err) {
+                    logger.error(`Scheduled booking job failed, Error: ${err.message}`);
+                } finally {
+                    counter--;
+                    logger.info(`Current job count: ${counter}`)
+                }
             }.bind(null, req));
             msg = msg + `, Current available slots: ${slots.length}`
             return res.status(200).json(msg);
@@ -229,7 +234,9 @@ async function bookingSlot(req, res = null) {
 
     } catch (err) {
         logger.error(`Unknown Exception, bookingSlot, Error: ${err}`)
-        return res.status(400).json(`Unknown Exception`);
+        if (res) {
+            return res.status(400).json(`Unknown Exception`);
+        }
     }
 
 }
@@ -351,8 +358,14 @@ async function fillUpDetail(req, res, cookies, userId, zoneIds, requestDate, req
 async function bookSlot(res, detailList, req = null, userId = null, cookies = null, requestDate = null, requestDateTime = null) {
     const startTime = getSyncNow();
     const expiredTime = getSyncMoment().add(35, 'minutes');
+    const bookingTimeoutMs = 15000;
+    const rateLimitBackoffAfterMs = 15000;
+    const rateLimitBaseDelayMs = 1000;
+    const rateLimitMaxDelayMs = 30000;
+    const connectionResetPauseMs = 15000;
     let isCompleted = false;
     let cartCheckInterval = null;
+    let globalPauseUntil = 0;
 
     // --- Worker Pool & Session Logic ---
     const activeWorkers = new Set();
@@ -373,6 +386,42 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
         return 5000;                                     // 23分钟后: 5000ms
     };
 
+    const summarizeResponseData = (data) => {
+        if (!data) return "";
+        const text = typeof data === "string" ? data : JSON.stringify(data);
+        return text.length > 300 ? `${text.slice(0, 300)}...` : text;
+    };
+
+    const getRetryAfterDelay = (retryAfter) => {
+        if (!retryAfter) return 0;
+        const seconds = Number(retryAfter);
+        if (!Number.isNaN(seconds)) return seconds * 1000;
+
+        const retryDate = new Date(retryAfter).getTime();
+        if (Number.isNaN(retryDate)) return 0;
+        return Math.max(0, retryDate - getSyncNow());
+    };
+
+    const getRateLimitDelay = (retryAfter, rateLimitStreak) => {
+        const retryAfterDelay = getRetryAfterDelay(retryAfter);
+        if (retryAfterDelay > 0) return Math.min(retryAfterDelay, rateLimitMaxDelayMs);
+
+        const exponentialDelay = Math.min(
+            rateLimitBaseDelayMs * Math.pow(2, Math.max(rateLimitStreak - 1, 0)),
+            rateLimitMaxDelayMs
+        );
+        const jitter = Math.floor(Math.random() * 500);
+        return exponentialDelay + jitter;
+    };
+
+    const waitForGlobalPause = async (sessionId) => {
+        const waitMs = globalPauseUntil - getSyncNow();
+        if (waitMs > 0) {
+            logger.warn(`[Worker Paused] Waiting ${waitMs}ms after connection reset, SessionId: ${sessionId}`);
+            await delay(waitMs);
+        }
+    };
+
     // 启动一个预订 Worker
     const startWorker = async (detail) => {
         if (processedSessions.has(detail.sessionId)) return;
@@ -380,6 +429,7 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
         activeWorkers.add(detail.sessionId);
 
         let retryCount = 0;
+        let rateLimitStreak = 0;
         logger.info(`[Worker Start] SessionId: ${detail.sessionId}`);
 
         while (!isCompleted && getSyncNow() < expiredTime.valueOf()) {
@@ -392,35 +442,65 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
             };
 
             try {
+                await waitForGlobalPause(detail.sessionId);
+                if (isCompleted || getSyncNow() >= expiredTime.valueOf()) break;
+
+                const requestStart = getSyncNow();
                 const response = await axios.post(BOOKING_API, data, {
-                    timeout: 3000,
+                    timeout: bookingTimeoutMs,
                     headers: {
                         "cookie": detail.cookies,
                         "cp-buy-product-before-booking-fb-session-id": detail.sessionId
                     },
                     validateStatus: status => status < 600
                 });
+                const requestDuration = getSyncNow() - requestStart;
 
                 if (response.status === 200) {
-                    logger.info(`✅ [Worker Success] SessionId: ${detail.sessionId}`);
+                    rateLimitStreak = 0;
+                    logger.info(`✅ [Worker Success] SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms`);
                     isCompleted = true;
                     // 成功后立即触发一次购物车检查
                     await checkShoppingCart();
                     break;
                 } else if (response.status === 499) {
+                    rateLimitStreak = 0;
                     // 还没放场，高频重试
                     const delayMs = getPhaseDelay();
+                    logger.info(`[Worker Waiting Release] 499, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms, Delay: ${delayMs}ms`);
                     if (delayMs > 0) await delay(delayMs);
+                } else if (response.status === 429) {
+                    rateLimitStreak++;
+                    const elapsed = getSyncNow() - startTime;
+                    const retryAfter = response.headers["retry-after"] || (response.headers.get && response.headers.get("retry-after"));
+                    const body = summarizeResponseData(response.data);
+
+                    if (elapsed >= rateLimitBackoffAfterMs) {
+                        const delayMs = getRateLimitDelay(retryAfter, rateLimitStreak);
+                        logger.warn(`[Worker Rate Limited] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Retry-After: ${retryAfter || "none"}, Delay: ${delayMs}ms, Body: ${body}`);
+                        await delay(delayMs);
+                    } else {
+                        const delayMs = getPhaseDelay() || 100;
+                        logger.info(`[Worker Status] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Delay: ${delayMs}ms, Body: ${body}`);
+                        await delay(delayMs);
+                    }
                 } else if (response.status >= 500) {
-                    logger.warn(`[Worker Server Error] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}`);
+                    rateLimitStreak = 0;
+                    logger.warn(`[Worker Server Error] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms, Body: ${summarizeResponseData(response.data)}`);
                     await delay(500); // 服务器出错，稍等
                 } else {
-                    logger.info(`[Worker Status] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}`);
+                    rateLimitStreak = 0;
+                    logger.info(`[Worker Status] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms, Body: ${summarizeResponseData(response.data)}`);
                     if (retryCount >= 200) break; // 单个 Session 尝试太多次，放弃
                     await delay(getPhaseDelay() || 100);
                 }
             } catch (err) {
-                logger.error(`[Worker Exception] ${err.message}, SessionId: ${detail.sessionId}`);
+                if (err.code === "ECONNRESET" || err.message.includes("ECONNRESET")) {
+                    globalPauseUntil = Math.max(globalPauseUntil, getSyncNow() + connectionResetPauseMs);
+                    logger.error(`[Worker Exception] ${err.message}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Pause: ${connectionResetPauseMs}ms`);
+                } else {
+                    logger.error(`[Worker Exception] ${err.message}, SessionId: ${detail.sessionId}, Retry: ${retryCount}`);
+                }
                 await delay(1000);
             }
         }

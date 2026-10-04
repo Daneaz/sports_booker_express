@@ -1,0 +1,200 @@
+2026-10-04 15:18:27:1827 info: [Time Sync] Server Time: 2026-10-04T07:18:26.000Z, Local Time: 2026-10-04T07:18:27.176Z, Offset: -632.5ms, RTT: 1087ms
+2026-10-04 15:27:11:2711 info: Current job count: 0
+2026-10-04 15:27:12:2712 info: LoggingIn with userId: 24692, FirstName: Weijie, LastName: Wu Eugene
+2026-10-04 15:27:14:2714 info: Available slots: 75,76,77,78,79
+2026-10-04 15:27:14:2714 info: Job has scheduled for Badminton Courts on Sun Oct 04 2026 15:58:00 GMT+0800... Current job count: 1
+2026-10-04 15:27:18:2718 info: Current job count: 1
+2026-10-04 15:27:19:2719 info: LoggingIn with userId: 24692, FirstName: Weijie, LastName: Wu Eugene
+2026-10-04 15:27:21:2721 info: Available slots: 71,72,73,74,75,76,77,78,79
+2026-10-04 15:27:21:2721 info: Job has scheduled for Badminton Courts on Sun Oct 04 2026 16:58:00 GMT+0800... Current job count: 2
+2026-10-04 15:33:27:3327 info: [Time Sync] Server Time: 2026-10-04T07:33:26.000Z, Local Time: 2026-10-04T07:33:27.185Z, Offset: -637.5ms, RTT: 1095ms
+2026-10-04 15:48:27:4827 info: [Time Sync] Server Time: 2026-10-04T07:48:26.000Z, Local Time: 2026-10-04T07:48:27.182Z, Offset: -636.5ms, RTT: 1091ms
+2026-10-04 15:58:00:580 info: Starting to run booker...
+2026-10-04 15:58:00:580 info: Current job count: 1
+2026-10-04 15:58:01:581 info: [Time Sync] Server Time: 2026-10-04T07:58:00.000Z, Local Time: 2026-10-04T07:58:01.107Z, Offset: -554.5ms, RTT: 1105ms
+2026-10-04 15:58:02:582 info: LoggingIn with userId: 24692, FirstName: Weijie, LastName: Wu Eugene
+2026-10-04 15:58:03:583 info: Available slots: 75,76,77,78,79
+2026-10-04 15:58:05:585 info: sessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 15:58:07:587 info: Obtained ruleId: 20, sessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 15:58:08:588 info: sessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 15:58:10:5810 info: Obtained ruleId: 20, sessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 15:58:12:5812 info: sessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 15:58:13:5813 info: Obtained ruleId: 20, sessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 15:58:15:5815 info: sessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 15:58:16:5816 info: Obtained ruleId: 20, sessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 15:58:18:5818 info: sessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 15:58:20:5820 info: Obtained ruleId: 20, sessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 15:58:20:5820 info: Holding time Please wait 100.5445 seconds... (100544.5 milliseconds)
+2026-10-04 16:00:00:00 info: [Worker Start] SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:00:00 info: [Worker Start] SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:00:00 info: [Worker Start] SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:00:00 info: [Worker Start] SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:00:00 info: [Worker Start] SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:03:03 error: [Worker Exception] timeout of 3000ms exceeded, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:03:03 error: [Worker Exception] timeout of 3000ms exceeded, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:03:03 error: [Worker Exception] timeout of 3000ms exceeded, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:03:03 error: [Worker Exception] timeout of 3000ms exceeded, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:07:07 error: [Worker Exception] timeout of 3000ms exceeded, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:11:011 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:00:13:013 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 7
+2026-10-04 16:00:14:014 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 6
+2026-10-04 16:00:14:014 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 9
+2026-10-04 16:00:14:014 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 7
+2026-10-04 16:00:15:015 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 8
+2026-10-04 16:00:15:015 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 8
+2026-10-04 16:00:15:015 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 7
+2026-10-04 16:00:16:016 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 8
+2026-10-04 16:00:16:016 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 10
+2026-10-04 16:00:16:016 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 9
+2026-10-04 16:00:16:016 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 9
+2026-10-04 16:00:17:017 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 8
+2026-10-04 16:00:17:017 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 9
+2026-10-04 16:00:17:017 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 11
+2026-10-04 16:00:18:018 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 10
+2026-10-04 16:00:18:018 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 10
+2026-10-04 16:00:18:018 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 9
+2026-10-04 16:00:19:019 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 10
+2026-10-04 16:00:19:019 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 12
+2026-10-04 16:00:19:019 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 11
+2026-10-04 16:00:19:019 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 11
+2026-10-04 16:00:20:020 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 10
+2026-10-04 16:00:20:020 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 11
+2026-10-04 16:00:20:020 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 13
+2026-10-04 16:00:21:021 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 12
+2026-10-04 16:00:21:021 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 12
+2026-10-04 16:00:21:021 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:00:21:021 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 11
+2026-10-04 16:00:21:021 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 12
+2026-10-04 16:00:22:022 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 14
+2026-10-04 16:00:22:022 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 13
+2026-10-04 16:00:22:022 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 13
+2026-10-04 16:00:23:023 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 12
+2026-10-04 16:00:23:023 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 13
+2026-10-04 16:00:23:023 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 15
+2026-10-04 16:00:24:024 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 14
+2026-10-04 16:00:24:024 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 14
+2026-10-04 16:00:24:024 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 13
+2026-10-04 16:00:24:024 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 14
+2026-10-04 16:00:25:025 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 16
+2026-10-04 16:00:25:025 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 15
+2026-10-04 16:00:25:025 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 15
+2026-10-04 16:00:26:026 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 14
+2026-10-04 16:00:26:026 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 15
+2026-10-04 16:00:26:026 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 17
+2026-10-04 16:00:27:027 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 16
+2026-10-04 16:00:27:027 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 16
+2026-10-04 16:00:27:027 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 15
+2026-10-04 16:00:27:027 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 16
+2026-10-04 16:00:27:027 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 18
+2026-10-04 16:00:28:028 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 17
+2026-10-04 16:00:28:028 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 17
+2026-10-04 16:00:29:029 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 16
+2026-10-04 16:00:29:029 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 17
+2026-10-04 16:00:29:029 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 19
+2026-10-04 16:00:30:030 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 18
+2026-10-04 16:00:30:030 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 18
+2026-10-04 16:00:30:030 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 17
+2026-10-04 16:00:30:030 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 18
+2026-10-04 16:00:30:030 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 20
+2026-10-04 16:00:31:031 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 19
+2026-10-04 16:00:31:031 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:00:31:031 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 19
+2026-10-04 16:00:32:032 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 18
+2026-10-04 16:00:32:032 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 19
+2026-10-04 16:00:32:032 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 21
+2026-10-04 16:00:33:033 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 20
+2026-10-04 16:00:33:033 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 20
+2026-10-04 16:00:33:033 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 19
+2026-10-04 16:00:33:033 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 20
+2026-10-04 16:00:33:033 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 22
+2026-10-04 16:00:34:034 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 21
+2026-10-04 16:00:34:034 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 21
+2026-10-04 16:00:35:035 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 20
+2026-10-04 16:00:35:035 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 21
+2026-10-04 16:00:35:035 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 23
+2026-10-04 16:00:36:036 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 22
+2026-10-04 16:00:36:036 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 22
+2026-10-04 16:00:36:036 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 21
+2026-10-04 16:00:36:036 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 22
+2026-10-04 16:00:36:036 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 24
+2026-10-04 16:00:37:037 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 23
+2026-10-04 16:00:37:037 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 23
+2026-10-04 16:00:38:038 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 22
+2026-10-04 16:00:38:038 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 23
+2026-10-04 16:00:38:038 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 25
+2026-10-04 16:00:39:039 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 24
+2026-10-04 16:00:39:039 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 24
+2026-10-04 16:00:39:039 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 23
+2026-10-04 16:00:39:039 info: [Worker Status] 429, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908, Retry: 24
+2026-10-04 16:00:39:039 info: [Worker Status] 429, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426, Retry: 26
+2026-10-04 16:00:40:040 info: [Worker Status] 429, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0, Retry: 25
+2026-10-04 16:00:40:040 info: [Worker Status] 429, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82, Retry: 25
+2026-10-04 16:00:41:041 info: [Worker Status] 429, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70, Retry: 24
+2026-10-04 16:00:41:041 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:41:041 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:41:041 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:00:42:042 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:42:042 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:42:042 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:43:043 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:43:043 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:44:044 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:44:044 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:45:045 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:46:046 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:46:046 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:46:046 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:46:046 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:47:047 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:48:048 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:48:048 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:49:049 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:49:049 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:49:049 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:50:050 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:50:050 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:51:051 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:51:051 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:00:51:051 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:52:052 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:53:053 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:53:053 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:53:053 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:54:054 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:54:054 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:55:055 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:55:055 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:56:056 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:56:056 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:56:056 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:00:58:058 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:00:58:058 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:00:58:058 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:00:58:058 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:00:59:059 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:01:00:10 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:01:00:10 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:01:01:11 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:01:01:11 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:01:01:11 info: [Cart Check] TotalQuantity: 0, Gross: 0
+2026-10-04 16:01:01:11 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:01:02:12 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:01:02:12 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:01:03:13 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:01:03:13 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:01:04:14 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:01:05:15 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:01:05:15 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:01:05:15 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:01:06:16 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:01:06:16 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:01:07:17 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:01:07:17 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:01:08:18 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:01:08:18 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:01:08:18 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
+2026-10-04 16:01:09:19 error: [Worker Exception] read ECONNRESET, SessionId: 1c0298a7-958b-4320-88fe-3fd9cee2b908
+2026-10-04 16:01:10:110 error: [Worker Exception] read ECONNRESET, SessionId: ba9990bc-5211-47b3-8b42-df5daf8c3426
+2026-10-04 16:01:10:110 error: [Worker Exception] read ECONNRESET, SessionId: 40359f62-5ec0-43a7-ab60-0459034e05a0
+2026-10-04 16:01:10:110 error: [Worker Exception] read ECONNRESET, SessionId: ad7a7c0b-c874-4868-b73c-9fce99787a82
+2026-10-04 16:01:11:111 error: [Worker Exception] read ECONNRESET, SessionId: beeccdde-c81c-4b5d-a8f5-a2c45f797d70
