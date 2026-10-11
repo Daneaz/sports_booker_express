@@ -395,12 +395,6 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
         return 5000;                                     // 23分钟后: 5000ms
     };
 
-    const summarizeResponseData = (data) => {
-        if (!data) return "";
-        const text = typeof data === "string" ? data : JSON.stringify(data);
-        return text.length > 300 ? `${text.slice(0, 300)}...` : text;
-    };
-
     const getRetryAfterDelay = (retryAfter) => {
         if (!retryAfter) return 0;
         const seconds = Number(retryAfter);
@@ -482,24 +476,23 @@ async function bookSlot(res, detailList, req = null, userId = null, cookies = nu
                     rateLimitStreak++;
                     const elapsed = getSyncNow() - startTime;
                     const retryAfter = response.headers["retry-after"] || (response.headers.get && response.headers.get("retry-after"));
-                    const body = summarizeResponseData(response.data);
 
                     if (elapsed >= rateLimitBackoffAfterMs) {
                         const delayMs = getRateLimitDelay(retryAfter, rateLimitStreak);
-                        logger.warn(`[Worker Rate Limited] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Retry-After: ${retryAfter || "none"}, Delay: ${delayMs}ms, Body: ${body}`);
+                        logger.warn(`[Worker Rate Limited] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Retry-After: ${retryAfter || "none"}, Delay: ${delayMs}ms`);
                         await delay(delayMs);
                     } else {
                         const delayMs = getPhaseDelay() || 100;
-                        logger.info(`[Worker Status] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Delay: ${delayMs}ms, Body: ${body}`);
+                        logger.info(`[Worker Status] 429, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Streak: ${rateLimitStreak}, Duration: ${requestDuration}ms, Delay: ${delayMs}ms`);
                         await delay(delayMs);
                     }
                 } else if (response.status >= 500) {
                     rateLimitStreak = 0;
-                    logger.warn(`[Worker Server Error] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms, Body: ${summarizeResponseData(response.data)}`);
+                    logger.warn(`[Worker Server Error] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms`);
                     await delay(500); // 服务器出错，稍等
                 } else {
                     rateLimitStreak = 0;
-                    logger.info(`[Worker Status] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms, Body: ${summarizeResponseData(response.data)}`);
+                    logger.info(`[Worker Status] ${response.status}, SessionId: ${detail.sessionId}, Retry: ${retryCount}, Duration: ${requestDuration}ms`);
                     if (retryCount >= 200) break; // 单个 Session 尝试太多次，放弃
                     await delay(getPhaseDelay() || 100);
                 }
