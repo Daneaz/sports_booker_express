@@ -80,7 +80,7 @@ const FACILITY_TYPE_MAP = new Map([
     [33, "Table Tennis"],
     [34, "Netball"],
     [35, "Volleyball"],
-    [42, "Hard Courts"],
+    [42, "Hard Court"],
     [85, "Tennis Indoor"],
     [83, "Tennis Outdoor"]
 ]);
