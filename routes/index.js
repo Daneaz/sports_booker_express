@@ -72,6 +72,18 @@ function getSyncNow() {
 const LOGIN_API = "https://thekallang.perfectgym.com/clientportal2/Auth/Login"
 const QUERY_DETAIL_API = "https://thekallang.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/SetFacilityBookingDetailsWizardStep/Next";
 const BOOKING_API = "https://thekallang.perfectgym.com/clientportal2/FacilityBookings/WizardSteps/ChooseBookingRuleStep/Next"
+const CALENDAR_API = "https://thekallang.perfectgym.com/clientportal2/MyCalendar/MyCalendar/GetCalendar"
+
+const FACILITY_TYPE_MAP = new Map([
+    [31, "Badminton"],
+    [32, "Basketball "],
+    [33, "Table Tennis"],
+    [34, "Netball"],
+    [35, "Volleyball"],
+    [42, "Hard Courts"],
+    [85, "Tennis Indoor"],
+    [83, "Tennis Outdoor"]
+]);
 
 const REQUEST_FORMAT = "YYYY-MM-DD";
 const FORMAT_WITH_TIME = "YYYY-MM-DD hh:mm a";
@@ -90,6 +102,7 @@ router.post("/voice", (req, res) => {
 router.post('/book', async function (req, res, next) {
 
     let requestDate = moment(new Date(req.body.date)).format(REQUEST_FORMAT)
+    req.body.facilityType = getFacilityType(req.body.type);
     let scheduleDate = moment(`${moment(new Date(req.body.date)).format(REQUEST_FORMAT)} ${req.body.time}`, FORMAT_WITH_TIME).subtract(120, "seconds").subtract(7, "days");
     let isSchedule;
     let msg;
@@ -178,6 +191,52 @@ async function checkingSlot(req, res) {
 
 }
 
+async function checkCurrentBookings(req, res, cookies, requestDate) {
+    try {
+        const facilityType = req.body.facilityType || getFacilityType(req.body.type);
+        const response = await axios.get(CALENDAR_API, {
+            headers: {
+                cookie: cookies
+            },
+            timeout: 5000,
+            validateStatus: status => status < 600
+        });
+
+        if (response.status !== 200 || !response.data) {
+            logger.warn(`[Current Booking Check] Status: ${response.status}, FacilityType: ${facilityType}, Date: ${requestDate}`);
+            return false;
+        }
+
+        const items = response.data.RecentItems && Array.isArray(response.data.RecentItems.Items)
+            ? response.data.RecentItems.Items
+            : [];
+        const normalizedFacilityType = normalizeText(facilityType);
+        if (!normalizedFacilityType) {
+            logger.warn(`[Current Booking Check] Unknown facility type, skipping check. Date: ${requestDate}`);
+            return false;
+        }
+
+        const matchedBooking = items.find(item => {
+            const itemDate = item && item.StartTime ? moment(item.StartTime).format(REQUEST_FORMAT) : null;
+            const itemName = normalizeText(item && item.Name);
+            return itemDate === requestDate
+                && itemName.includes(normalizedFacilityType)
+                && item.Duration === "PT2H";
+        });
+
+        if (matchedBooking) {
+            logger.warn(`[Current Booking Check] Existing PT2H booking found, FacilityType: ${facilityType}, Date: ${requestDate}, BookingId: ${matchedBooking.Id}, Name: ${matchedBooking.Name}`);
+            return true;
+        }
+
+        logger.info(`[Current Booking Check] No existing PT2H booking, FacilityType: ${facilityType}, Date: ${requestDate}, RecentItems: ${items.length}`);
+        return false;
+    } catch (err) {
+        logger.error(`[Current Booking Check Error] ${err.message}`);
+        return false;
+    }
+}
+
 async function bookingSlot(req, res = null) {
     try {
         // 在预订前执行一次时间同步
@@ -194,6 +253,16 @@ async function bookingSlot(req, res = null) {
             logger.info("Login Fail")
             if (res) {
                 return res.status(400).json(`Login Fail`);
+            } else {
+                return;
+            }
+        }
+
+        const hasCurrentBooking = await checkCurrentBookings(req, res, cookies, requestDate);
+        if (hasCurrentBooking) {
+            logger.info(`Booking full, existing ${req.body.facilityType} PT2H booking found on ${requestDate}`)
+            if (res) {
+                return res.status(400).json(`Booking is full, existing ${req.body.facilityType} PT2H booking found on ${requestDate}`);
             } else {
                 return;
             }
@@ -598,6 +667,15 @@ function getExpectedSlotCount(duration) {
         return 1;
     }
     return Math.max(1, Math.ceil(parsedDuration / 60));
+}
+
+function getFacilityType(type) {
+    const typeValue = Number(type && type.value);
+    return FACILITY_TYPE_MAP.get(typeValue) || (type && type.text) || "";
+}
+
+function normalizeText(text) {
+    return (text || "").toString().trim().toLowerCase();
 }
 
 async function makeCall(email) {
